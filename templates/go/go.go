@@ -2151,7 +2151,7 @@ func Uint32(ctx context.Context) string {
 
 // ArrayMode returns array-mode from the context.
 func ArrayMode(ctx context.Context) string {
-	s, _ := ctx.Value(ArrayMode).(string)
+	s, _ := ctx.Value(ArrayModeKey).(string)
 	return s
 }
 
