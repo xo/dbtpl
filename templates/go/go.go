@@ -1641,7 +1641,7 @@ func (f *Funcs) sqlstr_upsert_sqlserver_oracle(v interface{}) []string {
 		case "sqlserver":
 			lines = []string{"MERGE " + f.schemafn(x.SQLName) + " AS t "}
 		case "oracle":
-			lines = []string{"MERGE " + f.schemafn(x.SQLName) + "t "}
+			lines = []string{"MERGE " + f.schemafn(x.SQLName) + " t "}
 		}
 		// using (select ..)
 		var fields, predicate []string
