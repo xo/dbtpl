@@ -45,7 +45,7 @@ func main() {
 
 func run(ctx context.Context, verbose bool, dsn string) error {
 	if verbose {
-		logger := func(s string, v ...interface{}) {
+		logger := func(s string, v ...any) {
 			fmt.Printf("-------------------------------------\nQUERY: %s\n  VAL: %v\n\n", s, v)
 		}
 		mysql.SetLogger(logger)
