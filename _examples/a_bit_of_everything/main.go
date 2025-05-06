@@ -1,5 +1,7 @@
 // Command a_bit_of_everything demonstrates using generated models for the a_bit_of_everything
 // sample database.
+//
+//go:debug x509negativeserial=1
 package main
 
 import (

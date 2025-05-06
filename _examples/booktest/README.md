@@ -1,18 +1,18 @@
 # About
 
-This `booktest` directory contains the canonical `xo` example demonstrate an
-end-to-end use of `xo`. Generates code from a simple schema and custom query
+This `booktest` directory contains the canonical `dbtpl` example demonstrate an
+end-to-end use of `dbtpl`. Generates code from a simple schema and custom query
 for each database. Additionally, showcases a practical use of generated Go
 code.
 
-This examples are also used by the `xo` developers to compare generated code
+This examples are also used by the `dbtpl` developers to compare generated code
 for/between databases and template revisions.
 
 Contained in this directory is a subdirectory for each supported `<database>`
-by `xo`:
+by `dbtpl`:
 
 | Database             | Generated Code          |
-|----------------------|-------------------------|
+| -------------------- | ----------------------- |
 | Microsoft SQL Server | [sqlserver](sqlserver/) |
 | MySQL                | [mysql](mysql/)         |
 | Oracle               | [oracle](oracle/)       |

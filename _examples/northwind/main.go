@@ -3,6 +3,8 @@
 //
 // Schema/data comes from the Yugabyte Database Git repository. See README.md
 // for more information.
+//
+//go:debug x509negativeserial=1
 package main
 
 import (

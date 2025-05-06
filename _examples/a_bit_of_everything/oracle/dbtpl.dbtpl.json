@@ -83,14 +83,14 @@
           ],
           "return": [
             {
-              "name": "return_one",
+              "name": "return_two",
               "datatype": {
                 "type": "number",
                 "prec": 38
               }
             },
             {
-              "name": "return_two",
+              "name": "return_one",
               "datatype": {
                 "type": "number",
                 "prec": 38
@@ -1397,8 +1397,7 @@
             {
               "name": "a_xmltype",
               "datatype": {
-                "type": "xmltype",
-                "nullable": true
+                "type": "xmltype"
               }
             },
             {

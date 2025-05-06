@@ -1,8 +1,8 @@
 # About django examples
 
-The `django` example is the result of running `xo` against all the supported
-databases that Django and `xo` supports, with Django models similar to the `xo`
-booktest schema.
+The `django` example is the result of running `dbtpl` against all the supported
+databases that Django and `dbtpl` supports, with Django models similar to the
+`dbtpl` booktest schema.
 
 ## Setup
 
@@ -10,11 +10,11 @@ Install packages:
 
 ```sh
 # install mysql, postgres, sqlite3 dependencies
-$ sudo aptitude install libpq-dev libmysqlclient-dev libsqlite3-dev
+$ sudo apt install libpq-dev libmysqlclient-dev libsqlite3-dev
 
 # install sqlserver dependenices
 # manually add the microsoft-prod ppa -- see: https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver15
-$ sudo aptitude install unixodbc unixodbc-dev odbcinst msodbcsql18
+$ sudo apt install unixodbc unixodbc-dev odbcinst msodbcsql18
 
 # ensure odbcinst.ini has the relevant sqlserver entry
 $ cat /etc/odbcinst.ini

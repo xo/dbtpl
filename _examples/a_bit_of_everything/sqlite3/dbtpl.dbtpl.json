@@ -1319,7 +1319,7 @@
             }
           ],
           "manual": true,
-          "definition": "CREATE VIEW a_view_of_everything AS\n  SELECT * FROM a_bit_of_everything"
+          "definition": "CREATE VIEW a_view_of_everything AS   SELECT * FROM a_bit_of_everything"
         },
         {
           "type": "view",
@@ -1341,7 +1341,7 @@
             }
           ],
           "manual": true,
-          "definition": "CREATE VIEW a_view_of_everything_some AS\n  SELECT a_bool, a_text FROM a_bit_of_everything"
+          "definition": "CREATE VIEW a_view_of_everything_some AS   SELECT a_bool, a_text FROM a_bit_of_everything"
         }
       ]
     }

@@ -1,5 +1,7 @@
 // Command booktest is an example of using a similar schema on different
 // databases.
+//
+//go:debug x509negativeserial=1
 package main
 
 import (
