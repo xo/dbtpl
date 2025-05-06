@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-django = ">=4"
+django = ">=5"
 cx-oracle = "*"
 psycopg2 = "*"
 mysqlclient = "*"
