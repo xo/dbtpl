@@ -16,6 +16,9 @@ $ sudo apt install libpq-dev libmysqlclient-dev libsqlite3-dev
 # manually add the microsoft-prod ppa -- see: https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver15
 $ sudo apt install unixodbc unixodbc-dev odbcinst msodbcsql18
 
+# aur dependencies:
+$ yay -S python-pip python-pipenv unixodbc msodbcsql oracle-instantclient-sdk oracle-instantclient-sqlplus oracle-instantclient-tools
+
 # ensure odbcinst.ini has the relevant sqlserver entry
 $ cat /etc/odbcinst.ini
 [ODBC Driver 18 for SQL Server]
