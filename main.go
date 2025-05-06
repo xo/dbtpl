@@ -1,5 +1,7 @@
 // Command dbtpl generates code from database schemas and custom queries. Works
 // with PostgreSQL, MySQL, Microsoft SQL Server, Oracle Database, and SQLite3.
+//
+//go:debug x509negativeserial=1
 package main
 
 //go:generate ./gen.sh models
