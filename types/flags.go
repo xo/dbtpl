@@ -7,6 +7,7 @@ import (
 
 	"github.com/gobwas/glob"
 	"github.com/spf13/cobra"
+	"slices"
 )
 
 // Flag is a option flag.
@@ -77,12 +78,12 @@ type Value struct {
 	desc  string
 	enums []string
 	set   bool
-	v     interface{}
+	v     any
 }
 
 // NewValue creates a new flag value.
 func NewValue(typ, def, desc string, enums ...string) *Value {
-	var z interface{}
+	var z any
 	switch typ {
 	case "bool":
 		var b bool
@@ -165,7 +166,7 @@ func (v *Value) Set(s string) error {
 }
 
 // Interface returns the value.
-func (v *Value) Interface() interface{} {
+func (v *Value) Interface() any {
 	if v.v == nil {
 		panic("v should not be nil!")
 	}
@@ -212,10 +213,5 @@ func (v *Value) Type() string {
 
 // contains determines if v contains str.
 func contains(v []string, str string) bool {
-	for _, s := range v {
-		if s == str {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(v, str)
 }

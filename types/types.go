@@ -38,7 +38,7 @@ type Query struct {
 }
 
 // MarshalYAML satisfies the yaml.Marshaler interface.
-func (q Query) MarshalYAML() (interface{}, error) {
+func (q Query) MarshalYAML() (any, error) {
 	v := q
 	v.Comment = forceLineEnd(v.Comment)
 	return reflectStruct(v)
@@ -82,7 +82,7 @@ type Proc struct {
 }
 
 // MarshalYAML satisfies the yaml.Marshaler interface.
-func (p Proc) MarshalYAML() (interface{}, error) {
+func (p Proc) MarshalYAML() (any, error) {
 	v := p
 	v.Definition = forceLineEnd(v.Definition)
 	return reflectStruct(v)
@@ -101,7 +101,7 @@ type Table struct {
 }
 
 // MarshalYAML satisfies the yaml.Marshaler interface.
-func (t Table) MarshalYAML() (interface{}, error) {
+func (t Table) MarshalYAML() (any, error) {
 	v := t
 	v.Definition = forceLineEnd(v.Definition)
 	return reflectStruct(v)
@@ -256,7 +256,7 @@ type Template struct {
 	// SortName is the name to sort by.
 	SortName string
 	// Data is the template data.
-	Data interface{}
+	Data any
 }
 
 // ContextKey is a context key.
@@ -303,13 +303,13 @@ func forceLineEnd(s string) string {
 }
 
 // reflectStruct reflects a struct without its json tag.
-func reflectStruct(z interface{}) (interface{}, error) {
+func reflectStruct(z any) (any, error) {
 	v := reflect.ValueOf(z)
 	n, typ := v.NumField(), v.Type()
 	// build fields
 	var fields []reflect.StructField
 	var values []reflect.Value
-	for i := 0; i < n; i++ {
+	for i := range n {
 		f := typ.Field(i)
 		// lookup json tag
 		name, ok := f.Tag.Lookup("json")

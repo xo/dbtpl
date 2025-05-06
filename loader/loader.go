@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/kenshaw/snaker"
-	"github.com/xo/xo/models"
-	xo "github.com/xo/xo/types"
+	"github.com/xo/dbtpl/models"
+	xo "github.com/xo/dbtpl/types"
 )
 
 // loaders are registered database loaders.

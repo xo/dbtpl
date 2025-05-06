@@ -1,5 +1,6 @@
-/xo
-/xo.exe
+/dbtpl
+/dbtpl.exe
+
 /build/
 /x/
 /tmp/
@@ -14,4 +15,4 @@
 *.sqlite3
 *.sqlite3-journal
 *.svg
-*.xo.sql
+*.dbtpl.sql

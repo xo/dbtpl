@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	models "github.com/xo/xo/_examples/booktest/postgres"
+	models "github.com/xo/dbtpl/_examples/booktest/postgres"
 )
 
 func runPostgres(ctx context.Context, db *sql.DB) error {

@@ -2,8 +2,8 @@
 
 set -ex
 
-yaegi extract github.com/xo/xo/loader
-yaegi extract github.com/xo/xo/types
+yaegi extract github.com/xo/dbtpl/loader
+yaegi extract github.com/xo/dbtpl/types
 yaegi extract os/exec
 yaegi extract github.com/gobwas/glob
 yaegi extract github.com/goccy/go-yaml

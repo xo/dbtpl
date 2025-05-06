@@ -15,12 +15,12 @@ import (
 
 	"github.com/kenshaw/snaker"
 	"github.com/spf13/cobra"
+	"github.com/xo/dbtpl/loader"
+	"github.com/xo/dbtpl/models"
+	"github.com/xo/dbtpl/templates"
+	xo "github.com/xo/dbtpl/types"
 	"github.com/xo/dburl"
 	"github.com/xo/dburl/passfile"
-	"github.com/xo/xo/loader"
-	"github.com/xo/xo/models"
-	"github.com/xo/xo/templates"
-	xo "github.com/xo/xo/types"
 	"github.com/yookoala/realpath"
 )
 

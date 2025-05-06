@@ -7,7 +7,7 @@ import (
 	"text/template"
 
 	"github.com/goccy/go-yaml"
-	xo "github.com/xo/xo/types"
+	xo "github.com/xo/dbtpl/types"
 )
 
 // Init registers the template.

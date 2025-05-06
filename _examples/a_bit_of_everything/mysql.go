@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	models "github.com/xo/xo/_examples/a_bit_of_everything/mysql"
+	models "github.com/xo/dbtpl/_examples/a_bit_of_everything/mysql"
 )
 
 func runMysql(ctx context.Context, db *sql.DB) error {

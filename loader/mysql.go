@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/xo/xo/models"
-	xo "github.com/xo/xo/types"
+	"github.com/xo/dbtpl/models"
+	xo "github.com/xo/dbtpl/types"
 )
 
 func init() {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	models "github.com/xo/xo/_examples/booktest/sqlite3"
+	models "github.com/xo/dbtpl/_examples/booktest/sqlite3"
 )
 
 func runSqlite3(ctx context.Context, db *sql.DB) error {

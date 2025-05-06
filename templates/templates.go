@@ -15,8 +15,8 @@ import (
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
-	"github.com/xo/xo/internal"
-	xo "github.com/xo/xo/types"
+	"github.com/xo/dbtpl/internal"
+	xo "github.com/xo/dbtpl/types"
 )
 
 // Set holds a set of templates and handles generating files for a target

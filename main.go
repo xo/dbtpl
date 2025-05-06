@@ -17,7 +17,7 @@ import (
 	_ "github.com/microsoft/go-mssqldb"
 	_ "github.com/sijms/go-ora/v2"
 
-	"github.com/xo/xo/cmd"
+	"github.com/xo/dbtpl/cmd"
 )
 
 // version is the app version.
