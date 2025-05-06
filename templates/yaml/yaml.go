@@ -18,7 +18,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 		Funcs: func(ctx context.Context, _ string) (template.FuncMap, error) {
 			return template.FuncMap{
 				// yaml marshals v as yaml.
-				"yaml": func(v interface{}) (string, error) {
+				"yaml": func(v any) (string, error) {
 					buf, err := yaml.MarshalWithOptions(v)
 					if err != nil {
 						return "", err

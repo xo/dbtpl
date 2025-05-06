@@ -33,7 +33,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 		Funcs: func(ctx context.Context, _ string) (template.FuncMap, error) {
 			return template.FuncMap{
 				// json marshals v as json.
-				"json": func(v interface{}) (string, error) {
+				"json": func(v any) (string, error) {
 					buf := new(bytes.Buffer)
 					enc := json.NewEncoder(buf)
 					if !Ugly(ctx) {

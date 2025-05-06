@@ -6,9 +6,11 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -282,9 +284,7 @@ func (ts *Set) Process(ctx context.Context, outDir string, mode string, set *xo.
 	for k := range ts.files {
 		filenames = append(filenames, k)
 	}
-	sort.Slice(filenames, func(i, j int) bool {
-		return filenames[i] < filenames[j]
-	})
+	slices.Sort(filenames)
 	// Generate all files with the constructed template.
 	for _, file := range filenames {
 		emitted := ts.files[file]
@@ -558,9 +558,7 @@ func DefaultSymbols() map[string]map[string]reflect.Value {
 	} {
 		for kk, m := range syms {
 			z := make(map[string]reflect.Value)
-			for k, v := range m {
-				z[k] = v
-			}
+			maps.Copy(z, m)
 			symbols[kk] = z
 		}
 	}
@@ -590,12 +588,7 @@ func removeMatching(v []string, s []string) []string {
 
 // contains returns true when s is in v.
 func contains(v []string, s string) bool {
-	for _, z := range v {
-		if z == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(v, s)
 }
 
 // sourceFS handles source file mapping in a file system.
@@ -611,8 +604,8 @@ func (src sourceFS) Open(name string) (fs.File, error) {
 	if name == src.path {
 		return src.fs.Open(".")
 	}
-	if n := src.path + "/"; strings.HasPrefix(name, n) {
-		return src.fs.Open(strings.TrimPrefix(name, n))
+	if after, ok := strings.CutPrefix(name, src.path+"/"); ok {
+		return src.fs.Open(after)
 	}
 	return nil, os.ErrNotExist
 }

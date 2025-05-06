@@ -46,7 +46,7 @@ func ({{ short $e.GoName }} {{ $e.GoName }}) Value() (driver.Value, error) {
 }
 
 // Scan satisfies the [sql.Scanner] interface.
-func ({{ short $e.GoName }} *{{ $e.GoName }}) Scan(v interface{}) error {
+func ({{ short $e.GoName }} *{{ $e.GoName }}) Scan(v any) error {
 	switch x := v.(type) {
 	case []byte:
 		return {{ short $e.GoName }}.UnmarshalText(x)
@@ -74,7 +74,7 @@ func ({{ $nullShort }} {{ $nullName }}) Value() (driver.Value, error) {
 }
 
 // Scan satisfies the [sql.Scanner] interface.
-func ({{ $nullShort }} *{{ $nullName }}) Scan(v interface{}) error {
+func ({{ $nullShort }} *{{ $nullName }}) Scan(v any) error {
 	if v == nil {
 		{{ $nullShort }}.{{ $e.GoName }}, {{ $nullShort }}.Valid = 0, false
 		return nil

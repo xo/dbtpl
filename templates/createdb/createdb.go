@@ -444,7 +444,7 @@ func (f *Funcs) constraintfn(name string) string {
 }
 
 // fields
-func (f *Funcs) fields(v interface{}) string {
+func (f *Funcs) fields(v any) string {
 	switch x := v.(type) {
 	case []xo.Field:
 		var fs []string
@@ -574,7 +574,7 @@ var omitPrecision = map[string]map[string]bool{
 	},
 }
 
-func comma(i int, v interface{}) string {
+func comma(i int, v any) string {
 	var l int
 	switch x := v.(type) {
 	case []xo.Field:

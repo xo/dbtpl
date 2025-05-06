@@ -298,7 +298,7 @@ func SplitFields(s string) ([]xo.Field, error) {
 
 // index finds index of name in v.
 func index(v []xo.Field, name string) int {
-	for i := 0; i < len(v); i++ {
+	for i := range v {
 		if v[i].Name == name {
 			return i
 		}

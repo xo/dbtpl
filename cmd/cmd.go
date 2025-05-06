@@ -397,8 +397,8 @@ func Exec(ctx context.Context, mode string, ts *templates.Set, args *Args) func(
 		ctx := BuildContext(ctx, args)
 		// enable verbose output for sql queries
 		if args.Verbose {
-			models.SetLogger(func(str string, v ...interface{}) {
-				s, z := "SQL: %s\n", []interface{}{str}
+			models.SetLogger(func(str string, v ...any) {
+				s, z := "SQL: %s\n", []any{str}
 				if len(v) != 0 {
 					s, z = s+"PARAMS: %v\n", append(z, v)
 				}
