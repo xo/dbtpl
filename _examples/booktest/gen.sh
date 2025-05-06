@@ -37,11 +37,11 @@ if [ "$BUILD" = "1" ]; then
   popd &> /dev/null
 fi
 
-XOBIN=$(which xo)
-if [ -e $SRC/../../xo ]; then
-  XOBIN=$SRC/../../xo
+DBTPLBIN=$(which dbtpl)
+if [ -e $SRC/../../dbtpl ]; then
+  DBTPLBIN=$SRC/../../dbtpl
 fi
-XOBIN=$(realpath $XOBIN)
+DBTPLBIN=$(realpath $DBTPLBIN)
 
 pushd $SRC &> /dev/null
 
@@ -72,12 +72,12 @@ for TYPE in $DATABASES; do
     fi
   fi
   (set -ex;
-    $XOBIN schema $DB -o $TYPE             ${ARGS[@]} --go-initialism ISBN
-    $XOBIN schema $DB -o $TYPE -t createdb ${ARGS[@]} --createdb-fmt=""
-    $XOBIN schema $DB -o $TYPE -t json     ${ARGS[@]}
-    $XOBIN schema $DB -o $TYPE -t yaml     ${ARGS[@]}
-    $XOBIN schema $DB -o $TYPE -t dot      ${ARGS[@]}
-    $XOBIN query $DB ${ARGS[@]} < sql/${TYPE}_query.sql \
+    $DBTPLBIN schema $DB -o $TYPE             ${ARGS[@]} --go-initialism ISBN
+    $DBTPLBIN schema $DB -o $TYPE -t createdb ${ARGS[@]} --createdb-fmt=""
+    $DBTPLBIN schema $DB -o $TYPE -t json     ${ARGS[@]}
+    $DBTPLBIN schema $DB -o $TYPE -t yaml     ${ARGS[@]}
+    $DBTPLBIN schema $DB -o $TYPE -t dot      ${ARGS[@]}
+    $DBTPLBIN query $DB ${ARGS[@]} < sql/${TYPE}_query.sql \
       --go-initialism ISBN \
       -o $TYPE \
       -M \
