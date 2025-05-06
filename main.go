@@ -1,4 +1,4 @@
-// Command xo generates code from database schemas and custom queries. Works
+// Command dbtpl generates code from database schemas and custom queries. Works
 // with PostgreSQL, MySQL, Microsoft SQL Server, Oracle Database, and SQLite3.
 package main
 
@@ -24,7 +24,7 @@ import (
 var version = "0.0.0-dev"
 
 func main() {
-	if err := cmd.Run(context.Background(), "xo", version, os.Args[1:]...); err != nil {
+	if err := cmd.Run(context.Background(), "dbtpl", version, os.Args[1:]...); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

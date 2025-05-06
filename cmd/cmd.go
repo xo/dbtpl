@@ -1,4 +1,4 @@
-// Package cmd provides xo command-line application logic.
+// Package cmd provides dbtpl command-line application logic.
 package cmd
 
 import (
@@ -419,7 +419,8 @@ func Exec(ctx context.Context, mode string, ts *templates.Set, args *Args) func(
 	}
 }
 
-// Generate generates the XO files with the provided templates, data, and arguments.
+// Generate generates the dbtpl files with the provided templates, data, and
+// arguments.
 func Generate(ctx context.Context, mode string, ts *templates.Set, set *xo.Set, args *Args) error {
 	// create set context
 	ctx = ts.NewContext(ctx, mode)
