@@ -5,21 +5,26 @@ package internal
 import (
 	"context"
 	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/token"
 	"go/constant"
-	"go/token"
+	gotoken "go/token"
 	"reflect"
 )
 
 func init() {
 	Symbols["github.com/goccy/go-yaml/yaml"] = map[string]reflect.Value{
 		// function, constant and variable definitions
+		"AllowDuplicateMapKey":           reflect.ValueOf(yaml.AllowDuplicateMapKey),
+		"AutoInt":                        reflect.ValueOf(yaml.AutoInt),
 		"CommentFootPosition":            reflect.ValueOf(yaml.CommentFootPosition),
 		"CommentHeadPosition":            reflect.ValueOf(yaml.CommentHeadPosition),
 		"CommentLinePosition":            reflect.ValueOf(yaml.CommentLinePosition),
 		"CommentToMap":                   reflect.ValueOf(yaml.CommentToMap),
-		"DefaultIndentSpaces":            reflect.ValueOf(constant.MakeFromLiteral("2", token.INT, 0)),
-		"DisallowDuplicateKey":           reflect.ValueOf(yaml.DisallowDuplicateKey),
+		"DefaultIndentSpaces":            reflect.ValueOf(constant.MakeFromLiteral("2", gotoken.INT, 0)),
 		"DisallowUnknownField":           reflect.ValueOf(yaml.DisallowUnknownField),
+		"ErrDecodeRequiredPointerType":   reflect.ValueOf(&yaml.ErrDecodeRequiredPointerType).Elem(),
+		"ErrExceededMaxDepth":            reflect.ValueOf(&yaml.ErrExceededMaxDepth).Elem(),
 		"ErrInvalidCommentMapValue":      reflect.ValueOf(&yaml.ErrInvalidCommentMapValue).Elem(),
 		"ErrInvalidPath":                 reflect.ValueOf(&yaml.ErrInvalidPath).Elem(),
 		"ErrInvalidPathString":           reflect.ValueOf(&yaml.ErrInvalidPathString).Elem(),
@@ -32,6 +37,7 @@ func init() {
 		"Flow":                           reflect.ValueOf(yaml.Flow),
 		"FootComment":                    reflect.ValueOf(yaml.FootComment),
 		"FormatError":                    reflect.ValueOf(yaml.FormatError),
+		"FormatErrorWithToken":           reflect.ValueOf(&yaml.FormatErrorWithToken).Elem(),
 		"HeadComment":                    reflect.ValueOf(yaml.HeadComment),
 		"Indent":                         reflect.ValueOf(yaml.Indent),
 		"IndentSequence":                 reflect.ValueOf(yaml.IndentSequence),
@@ -58,7 +64,7 @@ func init() {
 		"ReferenceFiles":                 reflect.ValueOf(yaml.ReferenceFiles),
 		"ReferenceReaders":               reflect.ValueOf(yaml.ReferenceReaders),
 		"Strict":                         reflect.ValueOf(yaml.Strict),
-		"StructTagName":                  reflect.ValueOf(constant.MakeFromLiteral("\"yaml\"", token.STRING, 0)),
+		"StructTagName":                  reflect.ValueOf(constant.MakeFromLiteral("\"yaml\"", gotoken.STRING, 0)),
 		"Unmarshal":                      reflect.ValueOf(yaml.Unmarshal),
 		"UnmarshalContext":               reflect.ValueOf(yaml.UnmarshalContext),
 		"UnmarshalWithOptions":           reflect.ValueOf(yaml.UnmarshalWithOptions),
@@ -70,6 +76,7 @@ func init() {
 		"Validator":                      reflect.ValueOf(yaml.Validator),
 		"ValueToNode":                    reflect.ValueOf(yaml.ValueToNode),
 		"WithComment":                    reflect.ValueOf(yaml.WithComment),
+		"WithSmartAnchor":                reflect.ValueOf(yaml.WithSmartAnchor),
 		"YAMLToJSON":                     reflect.ValueOf(yaml.YAMLToJSON),
 
 		// type definitions
@@ -82,8 +89,10 @@ func init() {
 		"CommentPosition":             reflect.ValueOf((*yaml.CommentPosition)(nil)),
 		"DecodeOption":                reflect.ValueOf((*yaml.DecodeOption)(nil)),
 		"Decoder":                     reflect.ValueOf((*yaml.Decoder)(nil)),
+		"DuplicateKeyError":           reflect.ValueOf((*yaml.DuplicateKeyError)(nil)),
 		"EncodeOption":                reflect.ValueOf((*yaml.EncodeOption)(nil)),
 		"Encoder":                     reflect.ValueOf((*yaml.Encoder)(nil)),
+		"Error":                       reflect.ValueOf((*yaml.Error)(nil)),
 		"FieldError":                  reflect.ValueOf((*yaml.FieldError)(nil)),
 		"InterfaceMarshaler":          reflect.ValueOf((*yaml.InterfaceMarshaler)(nil)),
 		"InterfaceMarshalerContext":   reflect.ValueOf((*yaml.InterfaceMarshalerContext)(nil)),
@@ -92,23 +101,33 @@ func init() {
 		"IsZeroer":                    reflect.ValueOf((*yaml.IsZeroer)(nil)),
 		"MapItem":                     reflect.ValueOf((*yaml.MapItem)(nil)),
 		"MapSlice":                    reflect.ValueOf((*yaml.MapSlice)(nil)),
+		"NodeUnmarshaler":             reflect.ValueOf((*yaml.NodeUnmarshaler)(nil)),
+		"NodeUnmarshalerContext":      reflect.ValueOf((*yaml.NodeUnmarshalerContext)(nil)),
+		"OverflowError":               reflect.ValueOf((*yaml.OverflowError)(nil)),
 		"Path":                        reflect.ValueOf((*yaml.Path)(nil)),
 		"PathBuilder":                 reflect.ValueOf((*yaml.PathBuilder)(nil)),
 		"StructField":                 reflect.ValueOf((*yaml.StructField)(nil)),
 		"StructFieldMap":              reflect.ValueOf((*yaml.StructFieldMap)(nil)),
 		"StructValidator":             reflect.ValueOf((*yaml.StructValidator)(nil)),
+		"SyntaxError":                 reflect.ValueOf((*yaml.SyntaxError)(nil)),
+		"TypeError":                   reflect.ValueOf((*yaml.TypeError)(nil)),
+		"UnexpectedNodeTypeError":     reflect.ValueOf((*yaml.UnexpectedNodeTypeError)(nil)),
+		"UnknownFieldError":           reflect.ValueOf((*yaml.UnknownFieldError)(nil)),
 
 		// interface wrapper definitions
 		"_BytesMarshaler":              reflect.ValueOf((*_github_com_goccy_go_yaml_BytesMarshaler)(nil)),
 		"_BytesMarshalerContext":       reflect.ValueOf((*_github_com_goccy_go_yaml_BytesMarshalerContext)(nil)),
 		"_BytesUnmarshaler":            reflect.ValueOf((*_github_com_goccy_go_yaml_BytesUnmarshaler)(nil)),
 		"_BytesUnmarshalerContext":     reflect.ValueOf((*_github_com_goccy_go_yaml_BytesUnmarshalerContext)(nil)),
+		"_Error":                       reflect.ValueOf((*_github_com_goccy_go_yaml_Error)(nil)),
 		"_FieldError":                  reflect.ValueOf((*_github_com_goccy_go_yaml_FieldError)(nil)),
 		"_InterfaceMarshaler":          reflect.ValueOf((*_github_com_goccy_go_yaml_InterfaceMarshaler)(nil)),
 		"_InterfaceMarshalerContext":   reflect.ValueOf((*_github_com_goccy_go_yaml_InterfaceMarshalerContext)(nil)),
 		"_InterfaceUnmarshaler":        reflect.ValueOf((*_github_com_goccy_go_yaml_InterfaceUnmarshaler)(nil)),
 		"_InterfaceUnmarshalerContext": reflect.ValueOf((*_github_com_goccy_go_yaml_InterfaceUnmarshalerContext)(nil)),
 		"_IsZeroer":                    reflect.ValueOf((*_github_com_goccy_go_yaml_IsZeroer)(nil)),
+		"_NodeUnmarshaler":             reflect.ValueOf((*_github_com_goccy_go_yaml_NodeUnmarshaler)(nil)),
+		"_NodeUnmarshalerContext":      reflect.ValueOf((*_github_com_goccy_go_yaml_NodeUnmarshalerContext)(nil)),
 		"_StructValidator":             reflect.ValueOf((*_github_com_goccy_go_yaml_StructValidator)(nil)),
 	}
 }
@@ -153,15 +172,29 @@ func (W _github_com_goccy_go_yaml_BytesUnmarshalerContext) UnmarshalYAML(a0 cont
 	return W.WUnmarshalYAML(a0, a1)
 }
 
+// _github_com_goccy_go_yaml_Error is an interface wrapper for Error type
+type _github_com_goccy_go_yaml_Error struct {
+	IValue       interface{}
+	WError       func() string
+	WFormatError func(a0 bool, a1 bool) string
+	WGetMessage  func() string
+	WGetToken    func() *token.Token
+}
+
+func (W _github_com_goccy_go_yaml_Error) Error() string { return W.WError() }
+func (W _github_com_goccy_go_yaml_Error) FormatError(a0 bool, a1 bool) string {
+	return W.WFormatError(a0, a1)
+}
+func (W _github_com_goccy_go_yaml_Error) GetMessage() string     { return W.WGetMessage() }
+func (W _github_com_goccy_go_yaml_Error) GetToken() *token.Token { return W.WGetToken() }
+
 // _github_com_goccy_go_yaml_FieldError is an interface wrapper for FieldError type
 type _github_com_goccy_go_yaml_FieldError struct {
 	IValue       interface{}
 	WStructField func() string
 }
 
-func (W _github_com_goccy_go_yaml_FieldError) StructField() string {
-	return W.WStructField()
-}
+func (W _github_com_goccy_go_yaml_FieldError) StructField() string { return W.WStructField() }
 
 // _github_com_goccy_go_yaml_InterfaceMarshaler is an interface wrapper for InterfaceMarshaler type
 type _github_com_goccy_go_yaml_InterfaceMarshaler struct {
@@ -209,8 +242,26 @@ type _github_com_goccy_go_yaml_IsZeroer struct {
 	WIsZero func() bool
 }
 
-func (W _github_com_goccy_go_yaml_IsZeroer) IsZero() bool {
-	return W.WIsZero()
+func (W _github_com_goccy_go_yaml_IsZeroer) IsZero() bool { return W.WIsZero() }
+
+// _github_com_goccy_go_yaml_NodeUnmarshaler is an interface wrapper for NodeUnmarshaler type
+type _github_com_goccy_go_yaml_NodeUnmarshaler struct {
+	IValue         interface{}
+	WUnmarshalYAML func(a0 ast.Node) error
+}
+
+func (W _github_com_goccy_go_yaml_NodeUnmarshaler) UnmarshalYAML(a0 ast.Node) error {
+	return W.WUnmarshalYAML(a0)
+}
+
+// _github_com_goccy_go_yaml_NodeUnmarshalerContext is an interface wrapper for NodeUnmarshalerContext type
+type _github_com_goccy_go_yaml_NodeUnmarshalerContext struct {
+	IValue         interface{}
+	WUnmarshalYAML func(a0 context.Context, a1 ast.Node) error
+}
+
+func (W _github_com_goccy_go_yaml_NodeUnmarshalerContext) UnmarshalYAML(a0 context.Context, a1 ast.Node) error {
+	return W.WUnmarshalYAML(a0, a1)
 }
 
 // _github_com_goccy_go_yaml_StructValidator is an interface wrapper for StructValidator type
@@ -219,6 +270,4 @@ type _github_com_goccy_go_yaml_StructValidator struct {
 	WStruct func(a0 interface{}) error
 }
 
-func (W _github_com_goccy_go_yaml_StructValidator) Struct(a0 interface{}) error {
-	return W.WStruct(a0)
-}
+func (W _github_com_goccy_go_yaml_StructValidator) Struct(a0 interface{}) error { return W.WStruct(a0) }

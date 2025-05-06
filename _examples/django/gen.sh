@@ -51,7 +51,7 @@ for TYPE in $DATABASES; do
     exit 1
   fi
   mkdir -p $TYPE
-  rm -f $TYPE/*.xo.*
+  rm -f $TYPE/*.dbtpl.*
   echo "------------------------------------------------------"
   echo "$TYPE: $DB"
   if [ "$APPLY" = "1" ]; then

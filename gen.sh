@@ -3,7 +3,7 @@
 PGDB=pg://
 MYDB=my://localhost/mysql
 MSDB=ms://
-SQDB=sq:xo.db
+SQDB=sq:dbtpl.db
 ORDB=or://localhost/free
 
 DEST=$1
@@ -13,28 +13,28 @@ if [ -z "$DEST" ]; then
 fi
 shift
 
-XOBIN=$(which xo)
-if [ -e ./xo ]; then
-  XOBIN=./xo
+DBTPLBIN=$(which dbtpl)
+if [ -e ./dbtpl ]; then
+  DBTPLBIN=./dbtpl
 fi
-XOBIN=$(realpath $XOBIN)
+DBTPLBIN=$(realpath $DBTPLBIN)
 
 set -ex
 
 mkdir -p $DEST
 rm -f *.db
-rm -rf $DEST/*.xo.go
+rm -rf $DEST/*.dbtpl.go
 
 # postgres view create query
 COMMENT='{{ . }} creates a view for introspection.'
-$XOBIN query $PGDB -M -B -X -F PostgresViewCreate --func-comment "$COMMENT" --single=models.xo.go -I -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -X -F PostgresViewCreate --func-comment "$COMMENT" --single=models.dbtpl.go -I -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 CREATE TEMPORARY VIEW %%id string,interpolate%% AS %%query []string,interpolate,join%%
 ENDSQL
 
 # postgres view schema query
 COMMENT='{{ . }} retrieves the schema for a view created for introspection.'
-$XOBIN query $PGDB -M -B -l -F PostgresViewSchema --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -l -F PostgresViewSchema --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 SELECT
   n.nspname::varchar AS schema_name
 FROM pg_class c
@@ -45,21 +45,21 @@ ENDSQL
 
 # postgres view drop query
 COMMENT='{{ . }} drops a view created for introspection.'
-$XOBIN query $PGDB -M -B -X -F PostgresViewDrop --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -X -F PostgresViewDrop --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 DROP VIEW %%id string,interpolate%%
 ENDSQL
 
 # postgres schema query
 COMMENT='{{ . }} retrieves the schema.'
-$XOBIN query $PGDB -M -B -l -F PostgresSchema --func-comment "$COMMENT" --single=models.xo.go -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -l -F PostgresSchema --func-comment "$COMMENT" --single=models.dbtpl.go -a -o $DEST $@ << ENDSQL
 SELECT
   CURRENT_SCHEMA()::varchar AS schema_name
 ENDSQL
 
 # postgres enum list query
 COMMENT='{{ . }} is a enum.'
-$XOBIN query $PGDB -M -B -2 -T Enum -F PostgresEnums --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T Enum -F PostgresEnums --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   DISTINCT t.typname::varchar AS enum_name
 FROM pg_type t
@@ -70,7 +70,7 @@ ENDSQL
 
 # postgres enum value list query
 COMMENT='{{ . }} is a enum value.'
-$XOBIN query $PGDB -M -B -2 -T EnumValue -F PostgresEnumValues --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T EnumValue -F PostgresEnumValues --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   e.enumlabel::varchar AS enum_value,
   e.enumsortorder::integer AS const_value
@@ -83,7 +83,7 @@ ENDSQL
 
 # postgres proc list query
 COMMENT='{{ . }} is a stored procedure.'
-$XOBIN query $PGDB -M -B -2 -T Proc -F PostgresProcs --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T Proc -F PostgresProcs --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   p.oid::varchar AS proc_id,
   p.proname::varchar AS proc_name,
@@ -128,7 +128,7 @@ ENDSQL
 
 # postgres proc parameter list query
 COMMENT='{{ . }} is a stored procedure param.'
-$XOBIN query $PGDB -M -B -2 -T ProcParam -F PostgresProcParams --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T ProcParam -F PostgresProcParams --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   COALESCE(pp.param_name, '')::varchar AS param_name,
   pp.param_type::varchar AS param_type
@@ -148,7 +148,7 @@ ENDSQL
 
 # postgres table list query
 COMMENT='{{ . }} is a table.'
-$XOBIN query $PGDB -M -B -2 -T Table -F PostgresTables --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T Table -F PostgresTables --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   (CASE c.relkind
     WHEN 'r' THEN 'table'
@@ -174,7 +174,7 @@ ENDSQL
 # postgres table column list query
 FIELDS='FieldOrdinal int,ColumnName string,DataType string,NotNull bool,DefaultValue sql.NullString,IsPrimaryKey bool,Comment sql.NullString'
 COMMENT='{{ . }} is a column.'
-$XOBIN query $PGDB -M -B -2 -T Column -F PostgresTableColumns -Z "$FIELDS" --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T Column -F PostgresTableColumns -Z "$FIELDS" --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   a.attnum::integer AS field_ordinal,
   a.attname::varchar AS column_name,
@@ -202,7 +202,7 @@ ENDSQL
 
 # postgres sequence list query
 COMMENT='{{ . }} is a sequence.'
-$XOBIN query $PGDB -M -B -2 -T Sequence -F PostgresTableSequences --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T Sequence -F PostgresTableSequences --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   a.attname::varchar as column_name
 FROM pg_class s
@@ -217,7 +217,7 @@ ENDSQL
 
 # postgres table foreign key list query
 COMMENT='{{ . }} is a foreign key.'
-$XOBIN query $PGDB -M -B -2 -T ForeignKey -F PostgresTableForeignKeys --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T ForeignKey -F PostgresTableForeignKeys --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   tc.constraint_name::varchar AS foreign_key_name,
   kcu.column_name::varchar AS column_name,
@@ -260,7 +260,7 @@ ENDSQL
 
 # postgres table index list query
 COMMENT='{{ . }} is a index.'
-$XOBIN query $PGDB -M -B -2 -T Index -F PostgresTableIndexes --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T Index -F PostgresTableIndexes --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   DISTINCT ic.relname::varchar AS index_name,
   i.indisunique::boolean AS is_unique,
@@ -276,7 +276,7 @@ ENDSQL
 
 # postgres index column list query
 COMMENT='{{ . }} is a index column.'
-$XOBIN query $PGDB -M -B -2 -T IndexColumn -F PostgresIndexColumns --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -2 -T IndexColumn -F PostgresIndexColumns --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   (row_number() over())::integer AS seq_no,
   a.attnum::integer AS cid,
@@ -295,7 +295,7 @@ ENDSQL
 
 # postgres index column order query
 COMMENT='{{ . }} is a index column order.'
-$XOBIN query $PGDB -M -B -1 -2 -T PostgresColOrder -F PostgresGetColOrder --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
+$DBTPLBIN query $PGDB -M -B -1 -2 -T PostgresColOrder -F PostgresGetColOrder --type-comment "$COMMENT" -o $DEST $@ << ENDSQL
 SELECT
   i.indkey::varchar AS ord
 FROM pg_index i
@@ -308,27 +308,27 @@ ENDSQL
 
 # mysql view create query
 COMMENT='{{ . }} creates a view for introspection.'
-$XOBIN query $MYDB -M -B -X -F MysqlViewCreate --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -X -F MysqlViewCreate --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 CREATE VIEW %%id string,interpolate%% AS %%query []string,interpolate,join%%
 ENDSQL
 
 # mysql view drop query
 COMMENT='{{ . }} drops a view created for introspection.'
-$XOBIN query $MYDB -M -B -X -F MysqlViewDrop --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -X -F MysqlViewDrop --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 DROP VIEW %%id string,interpolate%%
 ENDSQL
 
 # mysql schema query
 COMMENT='{{ . }} retrieves the schema.'
-$XOBIN query $MYDB -M -B -l -F MysqlSchema --func-comment "$COMMENT" --single=models.xo.go -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -l -F MysqlSchema --func-comment "$COMMENT" --single=models.dbtpl.go -a -o $DEST $@ << ENDSQL
 SELECT
   SCHEMA() AS schema_name
 ENDSQL
 
 # mysql enum list query
-$XOBIN query $MYDB -M -B -2 -T Enum -F MysqlEnums -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T Enum -F MysqlEnums -a -o $DEST $@ << ENDSQL
 SELECT
   DISTINCT column_name AS enum_name
 FROM information_schema.columns
@@ -337,7 +337,7 @@ WHERE data_type = 'enum'
 ENDSQL
 
 # mysql enum value list query
-$XOBIN query $MYDB -M -B -1 -2 -T MysqlEnumValue -F MysqlEnumValues -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -1 -2 -T MysqlEnumValue -F MysqlEnumValues -o $DEST $@ << ENDSQL
 SELECT
   SUBSTRING(column_type, 6, CHAR_LENGTH(column_type) - 6) AS enum_values
 FROM information_schema.columns
@@ -347,7 +347,7 @@ WHERE data_type = 'enum'
 ENDSQL
 
 # mysql proc list query
-$XOBIN query $MYDB -M -B -2 -T Proc -F MysqlProcs -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T Proc -F MysqlProcs -a -o $DEST $@ << ENDSQL
 SELECT
   r.routine_name AS proc_id,
   r.routine_name AS proc_name,
@@ -364,7 +364,7 @@ ORDER BY r.routine_name, p.ordinal_position
 ENDSQL
 
 # mysql proc parameter list query
-$XOBIN query $MYDB -M -B -2 -T ProcParam -F MysqlProcParams -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T ProcParam -F MysqlProcParams -a -o $DEST $@ << ENDSQL
 SELECT
   p.parameter_name AS param_name,
   p.dtd_identifier AS param_type
@@ -378,7 +378,7 @@ ORDER BY p.ordinal_position
 ENDSQL
 
 # mysql table list query
-$XOBIN query $MYDB -M -B -2 -T Table -F MysqlTables -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T Table -F MysqlTables -a -o $DEST $@ << ENDSQL
 SELECT
   (CASE t.table_type
     WHEN 'BASE TABLE' THEN 'table'
@@ -400,7 +400,7 @@ WHERE t.table_schema = %%schema string%%
 ENDSQL
 
 # mysql table column list query
-$XOBIN query $MYDB -M -B -2 -T Column -F MysqlTableColumns -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T Column -F MysqlTableColumns -a -o $DEST $@ << ENDSQL
 SELECT
   ordinal_position AS field_ordinal,
   column_name,
@@ -416,7 +416,7 @@ ORDER BY ordinal_position
 ENDSQL
 
 # mysql sequence list query
-$XOBIN query $MYDB -M -B -2 -T Sequence -F MysqlTableSequences -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T Sequence -F MysqlTableSequences -a -o $DEST $@ << ENDSQL
 SELECT
   column_name
 FROM information_schema.columns c
@@ -426,7 +426,7 @@ WHERE c.extra = 'auto_increment'
 ENDSQL
 
 # mysql table foreign key list query
-$XOBIN query $MYDB -M -B -2 -T ForeignKey -F MysqlTableForeignKeys -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T ForeignKey -F MysqlTableForeignKeys -a -o $DEST $@ << ENDSQL
 SELECT
   constraint_name AS foreign_key_name,
   column_name AS column_name,
@@ -439,7 +439,7 @@ WHERE referenced_table_name IS NOT NULL
 ENDSQL
 
 # mysql table index list query
-$XOBIN query $MYDB -M -B -2 -T Index -F MysqlTableIndexes -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T Index -F MysqlTableIndexes -a -o $DEST $@ << ENDSQL
 SELECT
   DISTINCT index_name,
   NOT non_unique AS is_unique
@@ -450,7 +450,7 @@ WHERE index_name <> 'PRIMARY'
 ENDSQL
 
 # mysql index column list query
-$XOBIN query $MYDB -M -B -2 -T IndexColumn -F MysqlIndexColumns -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MYDB -M -B -2 -T IndexColumn -F MysqlIndexColumns -a -o $DEST $@ << ENDSQL
 SELECT
   seq_in_index AS seq_no,
   column_name
@@ -463,28 +463,28 @@ ENDSQL
 
 # sqlite3 view create query
 COMMENT='{{ . }} creates a view for introspection.'
-$XOBIN query $SQDB -M -B -X -F Sqlite3ViewCreate --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -X -F Sqlite3ViewCreate --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 CREATE TEMPORARY VIEW %%id string,interpolate%% AS %%query []string,interpolate,join%%
 ENDSQL
 
 # sqlite3 view drop query
 COMMENT='{{ . }} drops a view created for introspection.'
-$XOBIN query $SQDB -M -B -X -F Sqlite3ViewDrop --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -X -F Sqlite3ViewDrop --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 DROP VIEW %%id string,interpolate%%
 ENDSQL
 
 # sqlite3 schema query
 COMMENT='{{ . }} retrieves the schema.'
-$XOBIN query $SQDB -M -B -l -F Sqlite3Schema --func-comment "$COMMENT" --single=models.xo.go -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -l -F Sqlite3Schema --func-comment "$COMMENT" --single=models.dbtpl.go -a -o $DEST $@ << ENDSQL
 SELECT
   REPLACE(file, RTRIM(file, REPLACE(file, '/', '')), '') AS schema_name
 FROM pragma_database_list()
 ENDSQL
 
 # sqlite3 table list query
-$XOBIN query $SQDB -M -B -2 -T Table -F Sqlite3Tables -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -2 -T Table -F Sqlite3Tables -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 SELECT
   type,
@@ -499,7 +499,7 @@ WHERE tbl_name NOT LIKE 'sqlite_%'
 ENDSQL
 
 # sqlite3 table column list query
-$XOBIN query $SQDB -M -B -2 -T Column -F Sqlite3TableColumns -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -2 -T Column -F Sqlite3TableColumns -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 SELECT
   cid AS field_ordinal,
@@ -512,7 +512,7 @@ FROM pragma_table_info(%%table string%%)
 ENDSQL
 
 # sqlite3 sequence list query
-$XOBIN query $SQDB -M -B -2 -T Sequence -F Sqlite3TableSequences -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -2 -T Sequence -F Sqlite3TableSequences -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 WITH RECURSIVE
   a AS (
@@ -546,7 +546,7 @@ WHERE name = %%table string%%
 ENDSQL
 
 # sqlite3 table foreign key list query
-$XOBIN query $SQDB -M -B -2 -T ForeignKey -F Sqlite3TableForeignKeys -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -2 -T ForeignKey -F Sqlite3TableForeignKeys -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 SELECT
   id AS key_id,
@@ -557,7 +557,7 @@ FROM pragma_foreign_key_list(%%table string%%)
 ENDSQL
 
 # sqlite3 table index list query
-$XOBIN query $SQDB -M -B -2 -T Index -F Sqlite3TableIndexes -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -2 -T Index -F Sqlite3TableIndexes -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 SELECT
   name AS index_name,
@@ -567,7 +567,7 @@ FROM pragma_index_list(%%table string%%)
 ENDSQL
 
 # sqlite3 index column list query
-$XOBIN query $SQDB -M -B -2 -T IndexColumn -F Sqlite3IndexColumns -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $SQDB -M -B -2 -T IndexColumn -F Sqlite3IndexColumns -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% %%table string,interpolate%% */
 SELECT
   seqno AS seq_no,
@@ -578,27 +578,27 @@ ENDSQL
 
 # sqlserver view create query
 COMMENT='{{ . }} creates a view for introspection.'
-$XOBIN query $MSDB -M -B -X -F SqlserverViewCreate --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -X -F SqlserverViewCreate --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 CREATE VIEW %%id string,interpolate%% AS %%query []string,interpolate,join%%
 ENDSQL
 
 # sqlserver view drop query
 COMMENT='{{ . }} drops a view created for introspection.'
-$XOBIN query $MSDB -M -B -X -F SqlserverViewDrop --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -X -F SqlserverViewDrop --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 DROP VIEW %%id string,interpolate%%
 ENDSQL
 
 # sqlserver schema query
 COMMENT='{{ . }} retrieves the schema.'
-$XOBIN query $MSDB -M -B -l -F SqlserverSchema --func-comment "$COMMENT" --single=models.xo.go -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -l -F SqlserverSchema --func-comment "$COMMENT" --single=models.dbtpl.go -a -o $DEST $@ << ENDSQL
 SELECT
   SCHEMA_NAME() AS schema_name
 ENDSQL
 
 # sqlserver proc list query
-$XOBIN query $MSDB -M -B -2 -T Proc -F SqlserverProcs -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -2 -T Proc -F SqlserverProcs -a -o $DEST $@ << ENDSQL
 SELECT
   STR(o.object_id) AS proc_id,
   o.name AS proc_name,
@@ -627,7 +627,7 @@ ORDER BY o.object_id
 ENDSQL
 
 # sqlserver proc parameter list query
-$XOBIN query $MSDB -M -B -2 -T ProcParam -F SqlserverProcParams -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -2 -T ProcParam -F SqlserverProcParams -a -o $DEST $@ << ENDSQL
 SELECT
   SUBSTRING(p.name, 2, LEN(p.name)-1) AS param_name,
   TYPE_NAME(p.user_type_id) AS param_type
@@ -640,7 +640,7 @@ ORDER BY p.parameter_id
 ENDSQL
 
 # sqlserver table list query
-$XOBIN query $MSDB -M -B -2 -T Table -F SqlserverTables -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -2 -T Table -F SqlserverTables -a -o $DEST $@ << ENDSQL
 SELECT
   (CASE xtype
     WHEN 'U' THEN 'table'
@@ -660,7 +660,7 @@ WHERE SCHEMA_NAME(uid) = %%schema string%%
 ENDSQL
 
 # sqlserver table column list query
-$XOBIN query $MSDB -M -B -2 -T Column -F SqlserverTableColumns -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -2 -T Column -F SqlserverTableColumns -a -o $DEST $@ << ENDSQL
 SELECT
   c.colid AS field_ordinal,
   c.name AS column_name,
@@ -688,7 +688,7 @@ ORDER BY c.colid
 ENDSQL
 
 # sqlserver sequence list query
-$XOBIN query $MSDB -M -B -2 -T Sequence -F SqlserverTableSequences -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -2 -T Sequence -F SqlserverTableSequences -a -o $DEST $@ << ENDSQL
 SELECT
   COL_NAME(o.object_id, c.column_id) AS column_name
 FROM sys.objects o
@@ -700,7 +700,7 @@ WHERE c.is_identity = 1
 ENDSQL
 
 # sqlserver table foreign key list query
-$XOBIN query $MSDB -M -B -2 -T ForeignKey -F SqlserverTableForeignKeys -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -2 -T ForeignKey -F SqlserverTableForeignKeys -a -o $DEST $@ << ENDSQL
 SELECT
   fk.name AS foreign_key_name,
   col.name AS column_name,
@@ -720,7 +720,7 @@ WHERE schema_name(tab.schema_id) = %%schema string%%
 ENDSQL
 
 # sqlserver table index list query
-$XOBIN query $MSDB -M -B -2 -T Index -F SqlserverTableIndexes -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -2 -T Index -F SqlserverTableIndexes -a -o $DEST $@ << ENDSQL
 SELECT
   i.name AS index_name,
   i.is_primary_key AS is_primary,
@@ -734,7 +734,7 @@ WHERE i.name IS NOT NULL
 ENDSQL
 
 # sqlserver index column list query
-$XOBIN query $MSDB -M -B -2 -T IndexColumn -F SqlserverIndexColumns -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $MSDB -M -B -2 -T IndexColumn -F SqlserverIndexColumns -a -o $DEST $@ << ENDSQL
 SELECT
   k.keyno AS seq_no,
   k.colid AS cid,
@@ -754,35 +754,35 @@ ENDSQL
 
 # oracle view create query
 COMMENT='{{ . }} creates a view for introspection.'
-$XOBIN query $ORDB -M -B -X -F OracleViewCreate --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -X -F OracleViewCreate --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 CREATE GLOBAL TEMPORARY TABLE %%id string,interpolate%% ON COMMIT PRESERVE ROWS AS %%query []string,interpolate,join%%
 ENDSQL
 
 # oracle view truncate query
 COMMENT='{{ . }} truncates a view created for introspection.'
-$XOBIN query $ORDB -M -B -X -F OracleViewTruncate --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -X -F OracleViewTruncate --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 TRUNCATE TABLE %%id string,interpolate%%
 ENDSQL
 
 # oracle view drop query
 COMMENT='{{ . }} drops a view created for introspection.'
-$XOBIN query $ORDB -M -B -X -F OracleViewDrop --func-comment "$COMMENT" --single=models.xo.go -I -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -X -F OracleViewDrop --func-comment "$COMMENT" --single=models.dbtpl.go -I -a -o $DEST $@ << ENDSQL
 /* %%schema string,interpolate%% */
 DROP TABLE %%id string,interpolate%%
 ENDSQL
 
 # oracle schema query
 COMMENT='{{ . }} retrieves the schema.'
-$XOBIN query $ORDB -M -B -l -F OracleSchema --func-comment "$COMMENT" --single=models.xo.go -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -l -F OracleSchema --func-comment "$COMMENT" --single=models.dbtpl.go -a -o $DEST $@ << ENDSQL
 SELECT
   LOWER(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')) AS schema_name
 FROM dual
 ENDSQL
 
 # oracle proc list query
-$XOBIN query $ORDB -M -B -2 -T Proc -F OracleProcs -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -2 -T Proc -F OracleProcs -a -o $DEST $@ << ENDSQL
 SELECT
   CAST(o.object_id AS NVARCHAR2(255)) AS proc_id,
   LOWER(o.object_name) AS proc_name,
@@ -815,7 +815,7 @@ ORDER BY o.object_id
 ENDSQL
 
 # oracle proc parameter list query
-$XOBIN query $ORDB -M -B -2 -T ProcParam -F OracleProcParams -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -2 -T ProcParam -F OracleProcParams -a -o $DEST $@ << ENDSQL
 SELECT
   LOWER(a.argument_name) AS param_name,
   LOWER(CASE a.data_type
@@ -833,7 +833,7 @@ ORDER BY a.position
 ENDSQL
 
 # oracle table list query
-$XOBIN query $ORDB -M -B -2 -T Table -F OracleTables -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -2 -T Table -F OracleTables -a -o $DEST $@ << ENDSQL
 SELECT
   LOWER(o.object_type) AS type,
   LOWER(o.object_name) AS table_name,
@@ -855,7 +855,7 @@ ENDSQL
 
 # Thanks to github.com/svenwiltink
 # oracle table column list query
-$XOBIN query $ORDB -M -B -2 -T Column -F OracleTableColumns -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -2 -T Column -F OracleTableColumns -a -o $DEST $@ << ENDSQL
 SELECT
   c.column_id AS field_ordinal,
   LOWER(c.column_name) AS column_name,
@@ -887,7 +887,7 @@ ORDER BY c.column_id
 ENDSQL
 
 # oracle sequence list query
-$XOBIN query $ORDB -M -B -2 -T Sequence -F OracleTableSequences -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -2 -T Sequence -F OracleTableSequences -a -o $DEST $@ << ENDSQL
 SELECT
   LOWER(c.column_name) AS column_name
 FROM all_tab_columns c
@@ -897,7 +897,7 @@ WHERE c.identity_column='YES'
 ENDSQL
 
 # oracle table foreign key list query
-$XOBIN query $ORDB -M -B -2 -T ForeignKey -F OracleTableForeignKeys -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -2 -T ForeignKey -F OracleTableForeignKeys -a -o $DEST $@ << ENDSQL
 SELECT
   LOWER(a.constraint_name) AS foreign_key_name,
   LOWER(a.column_name) AS column_name,
@@ -916,7 +916,7 @@ WHERE c.constraint_type = 'R'
 ENDSQL
 
 # oracle table index list query
-$XOBIN query $ORDB -M -B -2 -T Index -F OracleTableIndexes -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -2 -T Index -F OracleTableIndexes -a -o $DEST $@ << ENDSQL
 SELECT
   LOWER(index_name) AS index_name,
   CASE WHEN uniqueness = 'UNIQUE' THEN '1' ELSE '0' END AS is_unique
@@ -926,7 +926,7 @@ WHERE owner = UPPER(%%schema string%%)
 ENDSQL
 
 # oracle index column list query
-$XOBIN query $ORDB -M -B -2 -T IndexColumn -F OracleIndexColumns -a -o $DEST $@ << ENDSQL
+$DBTPLBIN query $ORDB -M -B -2 -T IndexColumn -F OracleIndexColumns -a -o $DEST $@ << ENDSQL
 SELECT
   column_position AS seq_no,
   LOWER(column_name) AS column_name

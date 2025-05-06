@@ -28,6 +28,4 @@ type _github_com_gobwas_glob_Glob struct {
 	WMatch func(a0 string) bool
 }
 
-func (W _github_com_gobwas_glob_Glob) Match(a0 string) bool {
-	return W.WMatch(a0)
-}
+func (W _github_com_gobwas_glob_Glob) Match(a0 string) bool { return W.WMatch(a0) }

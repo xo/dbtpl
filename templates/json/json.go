@@ -1,4 +1,4 @@
-//go:build xotpl
+//go:build dbtpl
 
 package json
 
@@ -49,7 +49,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 		Process: func(ctx context.Context, _ string, set *xo.Set, emit func(xo.Template)) error {
 			emit(xo.Template{
 				Partial: "json",
-				Dest:    "xo.xo.json",
+				Dest:    "dbtpl.dbtpl.json",
 				Data:    set,
 			})
 			return nil

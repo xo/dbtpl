@@ -399,7 +399,7 @@ available in the [templates/](templates).
 |   query/custom.dbtpl.\*.tpl    |           Query            | Template for custom query execution.                                                   |
 |   query/typedef.dbtpl.\*.tpl   |            Type            | Template for custom query's generated type.                                            |
 
-For example, Go has [`templates/gotpl/schema/foreignkey.xo.go.tpl`](templates/gotpl/schema/foreignkey.xo.go.tpl)
+For example, Go has [`templates/gotpl/schema/foreignkey.dbtpl.go.tpl`](templates/gotpl/schema/foreignkey.dbtpl.go.tpl)
 which defines the template used by `dbtpl` for generating a function to get the
 foreign key type in Go. The templates are designed to be Database agnostic, so
 they are used for both PostgreSQL and Microsoft SQL the same, and all other
@@ -486,11 +486,11 @@ $ xo dump my-tpl
 We can now modify the templates to suit our specific schema, adding lookups,
 helpers, or anything else necessary for our schema.
 
-To add a `GetMostRecent` lookup, we edit our copy of the `typedef.xo.go.tpl`
+To add a `GetMostRecent` lookup, we edit our copy of the `typedef.dbtpl.go.tpl`
 template:
 
 ```sh
-$ vi templates/gotpl/schema/typedef.xo.go.tpl
+$ vi templates/gotpl/schema/typedef.dbtpl.go.tpl
 ```
 
 And add the following templated `GetMostRecent` func at the end of the file:
@@ -535,7 +535,7 @@ code:
 $ xo schema postgres://user:pass@localhost/dbname --src templates/
 ```
 
-There will now be a `GetMostRecentUsers` func defined in `models/user.xo.go`,
+There will now be a `GetMostRecentUsers` func defined in `models/user.dbtpl.go`,
 which can be used as follows:
 
 ```go

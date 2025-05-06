@@ -1,4 +1,4 @@
-//go:build xotpl
+//go:build dbtpl
 
 package gotpl
 
@@ -251,11 +251,11 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 			if !NotFirst(ctx) && !Append(ctx) {
 				emit(xo.Template{
 					Partial: "db",
-					Dest:    "db.xo.go",
+					Dest:    "db.dbtpl.go",
 				})
-				// If --single is provided, don't generate header for db.xo.go.
+				// If --single is provided, don't generate header for db.dbtpl.go.
 				if xo.Single(ctx) == "" {
-					files["db.xo.go"] = true
+					files["db.dbtpl.go"] = true
 				}
 			}
 			if Append(ctx) {
@@ -791,7 +791,7 @@ func camelExport(names ...string) string {
 	return snaker.ForceCamelIdentifier(strings.Join(names, "_"))
 }
 
-const ext = ".xo.go"
+const ext = ".dbtpl.go"
 
 // Funcs is a set of template funcs.
 type Funcs struct {

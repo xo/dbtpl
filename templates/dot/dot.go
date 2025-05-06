@@ -1,4 +1,4 @@
-//go:build xotpl
+//go:build dbtpl
 
 package dot
 
@@ -58,7 +58,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 			for _, schema := range set.Schemas {
 				emit(xo.Template{
 					Partial:  "dot",
-					Dest:     "xo.xo.dot",
+					Dest:     "dbtpl.dbtpl.dot",
 					SortName: schema.Name,
 					Data:     schema,
 				})
