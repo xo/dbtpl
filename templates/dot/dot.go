@@ -29,7 +29,6 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: BoldKey,
 				Type:       "bool",
 				Desc:       "bold header row",
-				Default:    "false",
 			},
 			{
 				ContextKey: ColorKey,
@@ -47,7 +46,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: DirectionKey,
 				Type:       "bool",
 				Desc:       "enable edge directions",
-				Default:    "true",
+				Default:    true,
 			},
 		},
 		Funcs: NewFuncs,

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -109,7 +110,6 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				Type:       "bool",
 				Desc:       "disable package file (ie. not first generated file)",
 				Short:      "2",
-				Default:    "false",
 			},
 			{
 				ContextKey: Int32Key,
@@ -203,7 +203,6 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: LegacyKey,
 				Type:       "bool",
 				Desc:       "enables legacy v1 template funcs",
-				Default:    "false",
 			},
 			{
 				ContextKey: OracleTypeKey,
@@ -2209,7 +2208,7 @@ func Conflict(ctx context.Context) string {
 // Esc indicates if esc should be escaped based from the context.
 func Esc(ctx context.Context, esc string) bool {
 	v, _ := ctx.Value(EscKey).([]string)
-	return !contains(v, "none") && (contains(v, "all") || contains(v, esc))
+	return !slices.Contains(v, "none") && (slices.Contains(v, "all") || slices.Contains(v, esc))
 }
 
 // FieldTag returns field-tag from the context.
@@ -2259,16 +2258,6 @@ func addInitialisms(ctx context.Context) error {
 		}
 	}
 	return snaker.DefaultInitialisms.Add(v...)
-}
-
-// contains determines if v contains s.
-func contains(v []string, s string) bool {
-	for _, z := range v {
-		if z == s {
-			return true
-		}
-	}
-	return false
 }
 
 // singularize singularizes s.

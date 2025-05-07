@@ -9,8 +9,6 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	// drivers
 	_ "github.com/go-sql-driver/mysql"
@@ -22,12 +20,6 @@ import (
 	"github.com/xo/dbtpl/cmd"
 )
 
-// version is the app version.
-var version = "0.0.0-dev"
-
 func main() {
-	if err := cmd.Run(context.Background(), "dbtpl", version, os.Args[1:]...); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
+	cmd.Run(context.Background(), "dbtpl")
 }

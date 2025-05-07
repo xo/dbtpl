@@ -64,7 +64,7 @@ func (ts *Set) LoadDefaults(ctx context.Context) error {
 	}
 	// determine default target
 	switch targets := ts.Targets(); {
-	case contains(targets, "go"):
+	case slices.Contains(targets, "go"):
 		ts.Use("go")
 	case len(targets) != 0:
 		ts.Use(targets[0])
@@ -174,7 +174,7 @@ func (ts *Set) Flags(name string) []xo.FlagSet {
 
 // For determines if the the template target supports the mode.
 func (ts *Set) For(mode string) error {
-	if target, ok := ts.targets[ts.target]; ok && contains(target.Type.Modes, mode) {
+	if target, ok := ts.targets[ts.target]; ok && slices.Contains(target.Type.Modes, mode) {
 		return nil
 	}
 	return fmt.Errorf("template %s does not support %s", ts.target, mode)
@@ -578,17 +578,12 @@ func DefaultTags() []string {
 func removeMatching(v []string, s []string) []string {
 	var res []string
 	for _, z := range v {
-		if contains(s, z) {
+		if slices.Contains(s, z) {
 			continue
 		}
 		res = append(res, z)
 	}
 	return res
-}
-
-// contains returns true when s is in v.
-func contains(v []string, s string) bool {
-	return slices.Contains(v, s)
 }
 
 // sourceFS handles source file mapping in a file system.

@@ -46,13 +46,12 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: FmtOptsKey,
 				Type:       "[]string",
 				Desc:       "fmt options",
-				Default:    strings.Join(fmtOpts, ","),
+				Default:    fmtOpts,
 			},
 			{
 				ContextKey: ConstraintKey,
 				Type:       "bool",
 				Desc:       "enable constraint name in output",
-				Default:    "false",
 			},
 			{
 				ContextKey: EscKey,
@@ -71,7 +70,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: TrimCommentKey,
 				Type:       "bool",
 				Desc:       "trim leading comment from views and procs",
-				Default:    "true",
+				Default:    true,
 			},
 		},
 		Funcs: NewFuncs,

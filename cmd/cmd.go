@@ -4,23 +4,22 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
+	iofs "io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 
 	"github.com/kenshaw/snaker"
-	"github.com/spf13/cobra"
 	"github.com/xo/dbtpl/loader"
 	"github.com/xo/dbtpl/models"
 	"github.com/xo/dbtpl/templates"
 	xo "github.com/xo/dbtpl/types"
 	"github.com/xo/dburl"
 	"github.com/xo/dburl/passfile"
+	"github.com/xo/ox"
 	"github.com/yookoala/realpath"
 )
 
@@ -146,22 +145,19 @@ type OutParams struct {
 }
 
 // Run runs the code generation.
-func Run(ctx context.Context, name, version string, cmdArgs ...string) error {
-	dir := parseArg("--src", "-d", cmdArgs)
-	template := parseArg("--template", "-t", cmdArgs)
+func Run(ctx context.Context, name string) {
+	dir := parseArg("--src", "-d", os.Args)
+	template := parseArg("--template", "-t", os.Args)
 	ts, err := NewTemplateSet(ctx, dir, template)
 	if err != nil {
-		return err
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
 	// create args
 	args := NewArgs(ts.Target(), ts.Targets()...)
 	// create root command
-	cmd, err := RootCommand(ctx, name, version, ts, args, cmdArgs...)
-	if err != nil {
-		return err
-	}
-	// execute
-	return cmd.Execute()
+	opts := RootCommand(ctx, name, ts, args)
+	ox.RunContext(ctx, opts...)
 }
 
 // NewTemplateSet creates a new templates set.
@@ -196,100 +192,101 @@ func NewTemplateSet(ctx context.Context, dir, template string) (*templates.Set, 
 }
 
 // RootCommand creates the root command.
-func RootCommand(ctx context.Context, name, version string, ts *templates.Set, args *Args, cmdargs ...string) (*cobra.Command, error) {
-	// command
-	cmd := &cobra.Command{
-		Use:     name,
-		Version: version,
-		Short:   name + ", the templated code generator for databases.",
+func RootCommand(ctx context.Context, name string, ts *templates.Set, args *Args, cmdargs ...string) []ox.Option {
+	// root
+	opts := []ox.Option{
+		ox.Usage(name, "the templated code generator for databases."),
+		ox.Defaults(),
 	}
-	// general config
-	_ = cmd.Flags().StringP("config", "c", "", "config file")
-	cmd.PersistentFlags().BoolVarP(&args.Verbose, "verbose", "v", false, "enable verbose output")
-	cmd.SetVersionTemplate("{{ .Name }} {{ .Version }}\n")
-	cmd.InitDefaultHelpCmd()
-	cmd.SetArgs(cmdargs)
-	cmd.SilenceErrors, cmd.SilenceUsage = true, true
 	// add sub commands
-	var subCmds []*cobra.Command
-	for _, f := range []func(context.Context, *templates.Set, *Args) (*cobra.Command, error){
+	for _, f := range []func(*templates.Set, *Args) ([]ox.Option, error){
 		QueryCommand,
 		SchemaCommand,
 		DumpCommand,
 	} {
-		c, err := f(ctx, ts, args)
+		subopts, err := f(ts, args)
 		if err != nil {
-			return nil, err
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
 		}
-		subCmds = append(subCmds, c)
+		opts = append(opts, ox.Sub(subopts...))
 	}
-	cmd.AddCommand(subCmds...)
-	return cmd, nil
+	return opts
 }
 
-// QueryCommand builds the query command.
-func QueryCommand(ctx context.Context, ts *templates.Set, args *Args) (*cobra.Command, error) {
-	// query command
-	cmd := &cobra.Command{
-		Use:   "query <database url>",
-		Short: "Generate code for a database query from a template.",
-		RunE:  Exec(ctx, "query", ts, args),
-	}
-	flags := cmd.Flags()
-	flags.SortFlags = false
-	databaseFlags(cmd, args)
-	outFlags(cmd, args)
-	flags.StringVarP(&args.QueryParams.Query, "query", "Q", "", "custom database query (uses stdin if not provided)")
-	flags.StringVarP(&args.QueryParams.Type, "type", "T", "", "type name")
-	flags.StringVar(&args.QueryParams.TypeComment, "type-comment", "", "type comment")
-	flags.StringVarP(&args.QueryParams.Func, "func", "F", "", "func name")
-	flags.StringVar(&args.QueryParams.FuncComment, "func-comment", "", "func comment")
-	flags.BoolVarP(&args.QueryParams.Trim, "trim", "M", false, "enable trimming whitespace")
-	flags.BoolVarP(&args.QueryParams.Strip, "strip", "B", false, "enable stripping type casts")
-	flags.BoolVarP(&args.QueryParams.One, "one", "1", false, "enable returning single (only one) result")
-	flags.BoolVarP(&args.QueryParams.Flat, "flat", "l", false, "enable returning unstructured (flat) values")
-	flags.BoolVarP(&args.QueryParams.Exec, "exec", "X", false, "enable exec (disables query introspection)")
-	flags.BoolVarP(&args.QueryParams.Interpolate, "interpolate", "I", false, "enable interpolation of embedded params")
-	flags.StringVarP(&args.QueryParams.Delimiter, "delimiter", "L", "%%", "delimiter used for embedded params")
-	flags.StringVarP(&args.QueryParams.Fields, "fields", "Z", "", "override field names for results")
-	flags.BoolVarP(&args.QueryParams.AllowNulls, "allow-nulls", "U", false, "allow result fields with NULL values")
-	if err := templateFlags(cmd, ts, true, args); err != nil {
+// QueryCommand builds the query command options.
+func QueryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
+	// query flags
+	fs := ox.Flags()
+	fs = databaseFlags(fs, args)
+	fs = outFlags(fs, args)
+	fs = fs.String("query", "custom database query (uses stdin if not provided)", ox.Bind(&args.QueryParams.Query), ox.Short("Q")).
+		String("type", "type name", ox.Bind(&args.QueryParams.Type), ox.Short("T")).
+		String("type-comment", "type comment", ox.Bind(&args.QueryParams.TypeComment)).
+		String("func", "func name", ox.Bind(&args.QueryParams.Func), ox.Short("F")).
+		String("func-comment", "func comment", ox.Bind(&args.QueryParams.FuncComment)).
+		Bool("trim", "enable trimming whitespace", ox.Bind(&args.QueryParams.Trim), ox.Short("M")).
+		Bool("strip", "enable stripping type casts", ox.Bind(&args.QueryParams.Strip), ox.Short("B")).
+		Bool("one", "enable returning single (only one) result", ox.Bind(&args.QueryParams.One), ox.Short("1")).
+		Bool("flat", "enable returning unstructured (flat) values", ox.Bind(&args.QueryParams.Flat), ox.Short("l")).
+		Bool("exec", "enable exec (disables query introspection)", ox.Bind(&args.QueryParams.Exec), ox.Short("X")).
+		Bool("interpolate", "enable interpolation of embedded params", ox.Bind(&args.QueryParams.Interpolate), ox.Short("I")).
+		String("delimiter", "delimiter used for embedded params", ox.Bind(&args.QueryParams.Delimiter), ox.Short("L"), ox.Default("%%")).
+		String("fields", "override field names for results", ox.Bind(&args.QueryParams.Fields), ox.Short("Z")).
+		Bool("allow-nulls", "allow result fields with NULL values", ox.Bind(&args.QueryParams.AllowNulls), ox.Short("U"))
+	var err error
+	if fs, err = templateFlags(fs, ts, true, args); err != nil {
 		return nil, err
 	}
-	return cmd, nil
+	return []ox.Option{
+		ox.Usage("query", "generate code for a database query from a template"),
+		ox.Banner("Generate code for a database query from a template."),
+		ox.ValidArgs(1, 1),
+		fs,
+		ox.Exec(Exec("query", ts, args)),
+	}, nil
 }
 
-// SchemaCommand builds the schema command.
-func SchemaCommand(ctx context.Context, ts *templates.Set, args *Args) (*cobra.Command, error) {
-	// schema command
-	cmd := &cobra.Command{
-		Use:   "schema <database url>",
-		Short: "Generate code for a database schema from a template.",
-		RunE:  Exec(ctx, "schema", ts, args),
-	}
-	flags := cmd.Flags()
-	flags.SortFlags = false
-	databaseFlags(cmd, args)
-	outFlags(cmd, args)
-	flags.VarP(args.SchemaParams.FkMode, "fk-mode", "k", args.SchemaParams.FkMode.Desc())
-	flags.VarP(args.SchemaParams.Include, "include", "i", args.SchemaParams.Include.Desc())
-	flags.VarP(args.SchemaParams.Exclude, "exclude", "e", args.SchemaParams.Exclude.Desc())
-	flags.BoolVarP(&args.SchemaParams.UseIndexNames, "use-index-names", "j", false, "use index names as defined in schema for generated code")
-	if err := templateFlags(cmd, ts, true, args); err != nil {
+// SchemaCommand builds the schema command options.
+func SchemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
+	// schema flags
+	fs := ox.Flags()
+	fs = databaseFlags(fs, args)
+	fs = outFlags(fs, args)
+	fs.Var("fk-mode", args.SchemaParams.FkMode.Desc(), ox.Bind(args.SchemaParams.FkMode), ox.Short("k")).
+		Var("include", args.SchemaParams.Include.Desc(), ox.Bind(args.SchemaParams.Include), ox.Short("i")).
+		Var("exclude", args.SchemaParams.Exclude.Desc(), ox.Bind(args.SchemaParams.Exclude), ox.Short("e")).
+		Bool("use-index-names", "use index names as defined in schema for generated code", ox.Bind(&args.SchemaParams.UseIndexNames), ox.Short("j"))
+	var err error
+	if fs, err = templateFlags(fs, ts, true, args); err != nil {
 		return nil, err
 	}
-	if err := loaderFlags(cmd, args); err != nil {
+	if fs, err = loaderFlags(fs, args); err != nil {
 		return nil, err
 	}
-	return cmd, nil
+	return []ox.Option{
+		ox.Usage("schema", "generate code for a database schema from a template"),
+		ox.Banner("Generate code for a database schema from a template."),
+		ox.ValidArgs(1, 1),
+		fs,
+		ox.Exec(Exec("schema", ts, args)),
+	}, nil
 }
 
-// DumpCommand builds the dump command.
-func DumpCommand(ctx context.Context, ts *templates.Set, args *Args) (*cobra.Command, error) {
-	cmd := &cobra.Command{
-		Use:   "dump <dir>",
-		Short: "Dump template to path.",
-		RunE: func(cmd *cobra.Command, v []string) error {
+// DumpCommand builds the dump command options.
+func DumpCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
+	// dump flags
+	fs := ox.Flags()
+	fs, err := templateFlags(fs, ts, false, args)
+	if err != nil {
+		return nil, err
+	}
+	return []ox.Option{
+		ox.Usage("dump", "dump template to path"),
+		ox.Banner("Dump template to path."),
+		ox.ValidArgs(1, 1),
+		fs,
+		ox.Exec(func(ctx context.Context, v []string) error {
 			// set template
 			ts.Use(args.TemplateParams.Type.AsString())
 			// get template src
@@ -302,67 +299,64 @@ func DumpCommand(ctx context.Context, ts *templates.Set, args *Args) (*cobra.Com
 				return err
 			}
 			// dump
-			return fs.WalkDir(src, ".", func(n string, d fs.DirEntry, err error) error {
+			return iofs.WalkDir(src, ".", func(n string, d iofs.DirEntry, err error) error {
 				switch {
 				case err != nil:
 					return err
 				case d.IsDir():
 					return os.MkdirAll(filepath.Join(v[0], n), 0o755)
 				}
-				buf, err := fs.ReadFile(src, n)
+				buf, err := iofs.ReadFile(src, n)
 				if err != nil {
 					return err
 				}
 				return os.WriteFile(filepath.Join(v[0], n), buf, 0o644)
 			})
-		},
-	}
-	if err := templateFlags(cmd, ts, false, args); err != nil {
-		return nil, err
-	}
-	cmd.Args = cobra.ExactArgs(1)
-	cmd.SetUsageTemplate(cmd.UsageTemplate() + "\nArgs:\n  <dir>  out directory\n\n")
-	return cmd, nil
+		}),
+	}, nil
 }
 
-// databaseFlags adds database flags to the command.
-func databaseFlags(cmd *cobra.Command, args *Args) {
-	cmd.Flags().StringVarP(&args.LoaderParams.Schema, "schema", "s", "", "database schema name")
-	cmd.Args = cobra.ExactArgs(1)
-	cmd.SetUsageTemplate(cmd.UsageTemplate() + "\nArgs:\n  <database url>  database url (e.g., postgres://user:pass@localhost:port/dbname, mysql://... )\n\n")
+// databaseFlags adds database flags to the flag set.
+func databaseFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
+	return fs.
+		String("schema", "database schema name", ox.Bind(&args.LoaderParams.Schema), ox.Short("s"))
+	// cmd.SetUsageTemplate(cmd.UsageTemplate() + "\nArgs:\n  <database url>  database url (e.g., postgres://user:pass@localhost:port/dbname, mysql://... )\n\n")
 }
 
-// outFlags adds out flags to the command.
-func outFlags(cmd *cobra.Command, args *Args) {
-	cmd.Flags().StringVarP(&args.OutParams.Out, "out", "o", "models", "out path")
-	cmd.Flags().BoolVarP(&args.OutParams.Debug, "debug", "D", false, "debug generated code (writes generated code to disk without post processing)")
-	cmd.Flags().StringVarP(&args.OutParams.Single, "single", "S", "", "output all contents to the specified file")
+// outFlags adds out flags to the flag set.
+func outFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
+	return fs.
+		String("out", "out path", ox.Bind(&args.OutParams.Out), ox.Short("o"), ox.Default("models")).
+		Bool("debug", "debug generated code (writes generated code to disk without post processing)", ox.Bind(&args.OutParams.Debug), ox.Short("D")).
+		String("single", "output all contents to the specified file", ox.Bind(&args.OutParams.Single), ox.Short("S"))
 }
 
-// loaderFlags adds database loader flags to the command.
-func loaderFlags(cmd *cobra.Command, args *Args) error {
+// loaderFlags adds database loader flags to the flag set.
+func loaderFlags(fs *ox.FlagSet, args *Args) (*ox.FlagSet, error) {
+	var err error
 	for _, flag := range loader.Flags() {
-		if err := flag.Add(cmd, args.LoaderParams.Flags); err != nil {
-			return err
+		if fs, err = flag.Add(fs, args.LoaderParams.Flags); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return fs, nil
 }
 
-// templateFlags adds template flags to the command.
-func templateFlags(cmd *cobra.Command, ts *templates.Set, extra bool, args *Args) error {
-	cmd.Flags().VarP(args.TemplateParams.Type, "template", "t", args.TemplateParams.Type.Desc())
+// templateFlags adds template flags to the flag set.
+func templateFlags(fs *ox.FlagSet, ts *templates.Set, extra bool, args *Args) (*ox.FlagSet, error) {
+	fs = fs.Var("template", args.TemplateParams.Type.Desc(), ox.Bind(args.TemplateParams.Type), ox.Short("t"))
 	if extra {
-		cmd.Flags().StringVarP(&args.TemplateParams.Src, "src", "d", "", "template source directory")
+		fs = fs.String("src", "template source directory", ox.Bind(&args.TemplateParams.Src), ox.Short("d"))
+		var err error
 		for _, name := range ts.Targets() {
 			for _, flag := range ts.Flags(name) {
-				if err := flag.Add(cmd, args.TemplateParams.Flags); err != nil {
-					return err
+				if fs, err = flag.Add(fs, args.TemplateParams.Flags); err != nil {
+					return nil, err
 				}
 			}
 		}
 	}
-	return nil
+	return fs, nil
 }
 
 func parseArg(short, full string, args []string) (s string) {
@@ -385,16 +379,16 @@ func parseArg(short, full string, args []string) (s string) {
 }
 
 // Exec handles the execution for query and schema.
-func Exec(ctx context.Context, mode string, ts *templates.Set, args *Args) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, cmdargs []string) error {
+func Exec(mode string, ts *templates.Set, args *Args) func(context.Context, []string) error {
+	return func(ctx context.Context, cmdargs []string) error {
 		// setup args
-		if err := checkArgs(cmd, mode, ts, args); err != nil {
+		if err := checkArgs(ctx, mode, ts, args); err != nil {
 			return err
 		}
 		// set template
 		ts.Use(args.TemplateParams.Type.AsString())
 		// build context
-		ctx := BuildContext(ctx, args)
+		ctx = BuildContext(ctx, args)
 		// enable verbose output for sql queries
 		if args.Verbose {
 			models.SetLogger(func(str string, v ...any) {
@@ -453,15 +447,17 @@ func Generate(ctx context.Context, mode string, ts *templates.Set, set *xo.Set, 
 }
 
 // checkArgs sets up and checks args.
-func checkArgs(cmd *cobra.Command, mode string, ts *templates.Set, args *Args) error {
+func checkArgs(ctx context.Context, mode string, ts *templates.Set, args *Args) error {
 	// check template is available for the mode
 	if err := ts.For(mode); err != nil {
 		return err
 	}
 	// check --src and --template are exclusive
-	if cmd.Flags().Lookup("src").Changed && cmd.Flags().Lookup("template").Changed {
-		return errors.New("--src and --template cannot be used together")
-	}
+	/*
+		if cmd.Flags().Lookup("src").Changed && cmd.Flags().Lookup("template").Changed {
+			return errors.New("--src and --template cannot be used together")
+		}
+	*/
 	// read query string from stdin if not provided via --query
 	if mode == "query" && args.QueryParams.Query == "" {
 		buf, err := io.ReadAll(os.Stdin)
@@ -532,7 +528,7 @@ func open(ctx context.Context, urlstr, schema string) (context.Context, error) {
 }
 
 // load loads a set of queries or schemas.
-func load(ctx context.Context, mode string, ts *templates.Set, args *Args) (*xo.Set, error) {
+func load(ctx context.Context, mode string, _ *templates.Set, args *Args) (*xo.Set, error) {
 	f := LoadSchema
 	if mode == "query" {
 		f = LoadQuery

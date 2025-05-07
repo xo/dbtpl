@@ -27,7 +27,6 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: UglyKey,
 				Type:       "bool",
 				Desc:       "disable indentation",
-				Default:    "false",
 			},
 		},
 		Funcs: func(ctx context.Context, _ string) (template.FuncMap, error) {

@@ -15,9 +15,9 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/microsoft/go-mssqldb v1.8.0
 	github.com/sijms/go-ora/v2 v2.8.24
-	github.com/spf13/cobra v1.9.1
 	github.com/traefik/yaegi v0.16.1
 	github.com/xo/dburl v0.23.7
+	github.com/xo/ox v0.0.0-20250130034615-44e38f949f5c
 	github.com/yookoala/realpath v1.0.0
 	golang.org/x/tools v0.33.0
 	mvdan.cc/gofumpt v0.8.0
@@ -33,12 +33,10 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.8.0 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/sync v0.14.0 // indirect

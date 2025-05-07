@@ -2,12 +2,12 @@ package types
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/gobwas/glob"
-	"github.com/spf13/cobra"
-	"slices"
+	"github.com/xo/ox"
 )
 
 // Flag is a option flag.
@@ -15,7 +15,7 @@ type Flag struct {
 	ContextKey ContextKey
 	Type       string
 	Desc       string
-	Default    string
+	Default    any
 	Short      string
 	Enums      []string
 	Aliases    []string
@@ -30,51 +30,46 @@ type FlagSet struct {
 }
 
 // Add adds the flag to the cmd.
-func (flag FlagSet) Add(cmd *cobra.Command, values map[ContextKey]*Value) error {
+func (flag FlagSet) Add(fs *ox.FlagSet, values map[ContextKey]*Value) (*ox.FlagSet, error) {
+	typ := ox.StringT
 	switch flag.Flag.Type {
-	case "bool", "int", "string", "[]string", "glob":
+	case "bool":
+		typ = ox.BoolT
+	case "int":
+		typ = ox.IntT
+	case "string":
+	case "[]string":
+		typ = ox.SliceT
+	case "glob":
+		typ = ox.GlobT
 	default:
-		return fmt.Errorf("unknown flag type %s", flag.Flag.Type)
+		return nil, fmt.Errorf("unknown flag type %s", flag.Flag.Type)
 	}
 	// create value
 	if _, ok := values[flag.Flag.ContextKey]; !ok {
 		values[flag.Flag.ContextKey] = NewValue(flag.Flag.Type, flag.Flag.Default, flag.Flag.Desc, flag.Flag.Enums...)
 	}
-	flags, name, desc := cmd.Flags(), flag.Type+"-"+flag.Name, values[flag.Flag.ContextKey].Desc()
-	// force pflag flag as bool
-	noOptDefValue := ""
-	if flag.Flag.Type == "bool" {
-		noOptDefValue = "true"
+	opts := []ox.Option{
+		ox.Bind(values[flag.Flag.ContextKey]),
+		ox.Hidden(flag.Flag.Hidden),
+		typ,
 	}
-	// add flag
-	switch {
-	case flag.Flag.Short == "":
-		flags.Var(values[flag.Flag.ContextKey], name, desc)
-	case flags.ShorthandLookup(flag.Flag.Short) != nil:
-		desc += fmt.Sprintf(" (short flag -%s also available)", flag.Flag.Short)
-		flags.Var(values[flag.Flag.ContextKey], name, desc)
-	default:
-		flags.VarP(values[flag.Flag.ContextKey], name, flag.Flag.Short, desc)
+	if flag.Flag.Short != "" {
+		opts = append(opts, ox.Short(flag.Flag.Short))
 	}
-	// add aliases
-	for _, alias := range flag.Flag.Aliases {
-		if flags.Lookup(alias) != nil {
-			continue
-		}
-		flags.Var(values[flag.Flag.ContextKey], alias, desc)
-		f := flags.Lookup(alias)
-		f.Hidden, f.NoOptDefVal = true, noOptDefValue
+	if flag.Flag.Default != nil {
+		opts = append(opts, ox.Default(flag.Flag.Default))
 	}
-	// copy short, hidden, bool
-	f := flags.Lookup(name)
-	f.Hidden, f.NoOptDefVal = flag.Flag.Hidden, noOptDefValue
-	return nil
+	if len(flag.Flag.Aliases) != 0 {
+		opts = append(opts, ox.Aliases(flag.Flag.Aliases...))
+	}
+	return fs.Var(flag.Type+"-"+flag.Name, values[flag.Flag.ContextKey].Desc(), opts...), nil
 }
 
 // Value wraps a flag value.
 type Value struct {
 	typ   string
-	def   string
+	def   any
 	desc  string
 	enums []string
 	set   bool
@@ -82,7 +77,7 @@ type Value struct {
 }
 
 // NewValue creates a new flag value.
-func NewValue(typ, def, desc string, enums ...string) *Value {
+func NewValue(typ string, def any, desc string, enums ...string) *Value {
 	var z any
 	switch typ {
 	case "bool":
@@ -108,18 +103,15 @@ func NewValue(typ, def, desc string, enums ...string) *Value {
 		enums: enums,
 		v:     z,
 	}
-	if v.def != "" {
-		if err := v.Set(v.def); err != nil {
-			panic(err)
+	/*
+		if v.def != nil {
+			if err := v.Set(v.def); err != nil {
+				panic(err)
+			}
+			v.set = false
 		}
-		v.set = false
-	}
+	*/
 	return v
-}
-
-// String satisfies the pflag.Value interface.
-func (v *Value) String() string {
-	return v.def
 }
 
 // Desc returns the usage description for the flag value.
@@ -130,11 +122,11 @@ func (v *Value) Desc() string {
 	return v.desc
 }
 
-// Set satisfies the pflag.Value interface.
+// Set satisfies the [ox.Value] interface.
 func (v *Value) Set(s string) error {
 	v.set = true
 	if v.enums != nil {
-		if !contains(v.enums, s) {
+		if !slices.Contains(v.enums, s) {
 			return fmt.Errorf("invalid value %q", s)
 		}
 	}
@@ -201,17 +193,4 @@ func (v *Value) AsStringSlice() []string {
 func (v *Value) AsGlob() []glob.Glob {
 	z, _ := v.v.([]glob.Glob)
 	return z
-}
-
-// Type satisfies the pflag.Value interface.
-func (v *Value) Type() string {
-	if v.typ == "[]string" {
-		return "string"
-	}
-	return v.typ
-}
-
-// contains determines if v contains str.
-func contains(v []string, str string) bool {
-	return slices.Contains(v, str)
 }
