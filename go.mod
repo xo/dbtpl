@@ -1,14 +1,14 @@
 module github.com/xo/dbtpl
 
-go 1.23.0
+go 1.24.2
 
-toolchain go1.24.2
+toolchain go1.24.3
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/go-sql-driver/mysql v1.9.2
-	github.com/gobwas/glob v0.2.3
 	github.com/goccy/go-yaml v1.17.1
+	github.com/kenshaw/glob v0.0.0-20250507233341-2ccc24e5a073
 	github.com/kenshaw/inflector v0.3.0
 	github.com/kenshaw/snaker v0.4.3
 	github.com/lib/pq v1.10.9
@@ -17,7 +17,7 @@ require (
 	github.com/sijms/go-ora/v2 v2.8.24
 	github.com/traefik/yaegi v0.16.1
 	github.com/xo/dburl v0.23.7
-	github.com/xo/ox v0.0.0-20250130034615-44e38f949f5c
+	github.com/xo/ox v0.0.0-20250511214916-a8e132d4ceee
 	github.com/yookoala/realpath v1.0.0
 	golang.org/x/tools v0.33.0
 	mvdan.cc/gofumpt v0.8.0

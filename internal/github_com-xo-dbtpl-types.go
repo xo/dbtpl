@@ -14,7 +14,6 @@ func init() {
 		"DbKey":          reflect.ValueOf(types.DbKey),
 		"DriverDbSchema": reflect.ValueOf(types.DriverDbSchema),
 		"DriverKey":      reflect.ValueOf(types.DriverKey),
-		"NewValue":       reflect.ValueOf(types.NewValue),
 		"Out":            reflect.ValueOf(types.Out),
 		"OutKey":         reflect.ValueOf(types.OutKey),
 		"ParseType":      reflect.ValueOf(types.ParseType),
@@ -38,6 +37,5 @@ func init() {
 		"Template":     reflect.ValueOf((*types.Template)(nil)),
 		"TemplateType": reflect.ValueOf((*types.TemplateType)(nil)),
 		"Type":         reflect.ValueOf((*types.Type)(nil)),
-		"Value":        reflect.ValueOf((*types.Value)(nil)),
 	}
 }

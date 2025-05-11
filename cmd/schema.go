@@ -420,7 +420,7 @@ func LoadTableForeignKeys(ctx context.Context, args *Args, tables []xo.Table, ta
 			fkey.Name = table.Name + "_" + strings.Join(names, "_") + "_fkey"
 		}
 		// determine foreign key func name
-		fkey.Func = resolveFkName(fkey, table, args.SchemaParams.FkMode.AsString())
+		fkey.Func = resolveFkName(fkey, table, args.SchemaParams.FkMode)
 		// foreign key called func name
 		fkey.RefFunc = indexFuncName(xo.Index{
 			IsUnique: true,
@@ -438,21 +438,21 @@ func LoadTableForeignKeys(ctx context.Context, args *Args, tables []xo.Table, ta
 // validType returns whether the type name given is valid, given the --include
 // and --exclude options provided by the user.
 func validType(args *Args, skipIncludes bool, names ...string) bool {
-	include, exclude := args.SchemaParams.Include.AsGlob(), args.SchemaParams.Exclude.AsGlob()
+	include, exclude := args.SchemaParams.Include, args.SchemaParams.Exclude
 	if len(include) == 0 && len(exclude) == 0 {
 		return true
 	}
 	target := strings.Join(names, ".")
-	for _, pattern := range exclude {
-		if pattern.Match(target) {
+	for _, g := range exclude {
+		if g.Match(target) {
 			return false
 		}
 	}
 	if len(include) == 0 || skipIncludes {
 		return true
 	}
-	for _, pattern := range include {
-		if pattern.Match(target) {
+	for _, g := range include {
+		if g.Match(target) {
 			return true
 		}
 	}

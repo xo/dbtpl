@@ -329,8 +329,27 @@ func reflectStruct(z any) (any, error) {
 	}
 	// build value
 	s := reflect.New(reflect.StructOf(fields))
-	for i := 0; i < len(values); i++ {
-		s.Elem().Field(i).Set(values[i])
+	for i, v := range values {
+		s.Elem().Field(i).Set(v)
 	}
 	return s.Elem().Interface(), nil
+}
+
+// Flag is a option flag.
+type Flag struct {
+	ContextKey ContextKey
+	Type       string
+	Desc       string
+	Default    any
+	Short      string
+	Enums      []string
+	Aliases    []string
+	Hidden     bool
+}
+
+// FlagSet is a set of option flags.
+type FlagSet struct {
+	Type string
+	Name string
+	Flag Flag
 }

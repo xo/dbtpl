@@ -46,7 +46,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: FmtOptsKey,
 				Type:       "[]string",
 				Desc:       "fmt options",
-				Default:    fmtOpts,
+				Default:    strings.Join(fmtOpts, ","),
 			},
 			{
 				ContextKey: ConstraintKey,

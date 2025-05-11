@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kenshaw/glob"
 	"github.com/kenshaw/snaker"
 	"github.com/xo/dbtpl/loader"
 	"github.com/xo/dbtpl/models"
@@ -20,11 +21,36 @@ import (
 	"github.com/xo/dburl"
 	"github.com/xo/dburl/passfile"
 	"github.com/xo/ox"
+	_ "github.com/xo/ox/glob"
 	"github.com/yookoala/realpath"
 )
 
+// Run runs the code generation.
+func Run(ctx context.Context, name string) {
+	// peek template set
+	ts, err := NewTemplateSet(
+		ctx,
+		parseArg("--src", "-d", os.Args),
+		parseArg("--template", "-t", os.Args),
+	)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+	// build command
+	args := NewArgs(ts.Target(), ts.Targets()...)
+	opts, err := RootCommand(name, ts, args)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+	ox.RunContext(ctx, opts...)
+}
+
 // Args contains command-line arguments.
 type Args struct {
+	// TemplateTypes are the allowed template types.
+	TemplateTypes []string
 	// Verbose enables verbose output.
 	Verbose bool
 	// LoaderParams are database loader parameters.
@@ -40,20 +66,15 @@ type Args struct {
 }
 
 // NewArgs creates args for the provided template names.
-func NewArgs(name string, names ...string) *Args {
+func NewArgs(name string, types ...string) *Args {
 	// default args
 	return &Args{
+		TemplateTypes: types,
 		LoaderParams: LoaderParams{
-			Flags: make(map[xo.ContextKey]*xo.Value),
+			Flags: make(map[xo.ContextKey]ox.Value),
 		},
 		TemplateParams: TemplateParams{
-			Type:  xo.NewValue("string", name, "template type", names...),
-			Flags: make(map[xo.ContextKey]*xo.Value),
-		},
-		SchemaParams: SchemaParams{
-			FkMode:  xo.NewValue("string", "smart", "foreign key resolution mode", "smart", "parent", "field", "key"),
-			Include: xo.NewValue("glob", "", "include types"),
-			Exclude: xo.NewValue("glob", "", "exclude types"),
+			Flags: make(map[xo.ContextKey]ox.Value),
 		},
 	}
 }
@@ -63,17 +84,17 @@ type LoaderParams struct {
 	// Schema is the name of the database schema.
 	Schema string
 	// Flags are additional loader flags.
-	Flags map[xo.ContextKey]*xo.Value
+	Flags map[xo.ContextKey]ox.Value
 }
 
 // TemplateParams are template parameters.
 type TemplateParams struct {
 	// Type is the name of the template.
-	Type *xo.Value
+	Type string
 	// Src is the src directory of the template.
 	Src string
 	// Flags are additional template flags.
-	Flags map[xo.ContextKey]*xo.Value
+	Flags map[xo.ContextKey]ox.Value
 }
 
 // QueryParams are query parameters.
@@ -111,7 +132,7 @@ type QueryParams struct {
 // SchemaParams are schema parameters.
 type SchemaParams struct {
 	// FkMode is the foreign resolution mode.
-	FkMode *xo.Value
+	FkMode string
 	// Include allows the user to specify which types should be included. Can
 	// match multiple types via regex patterns.
 	//
@@ -119,12 +140,12 @@ type SchemaParams struct {
 	// - When specified, only types match will be included.
 	// - When a type matches an exclude entry and an include entry,
 	//   the exclude entry will take precedence.
-	Include *xo.Value
+	Include []*glob.Glob
 	// Exclude allows the user to specify which types should be skipped. Can
 	// match multiple types via regex patterns.
 	//
 	// When unspecified, all types are included in the schema.
-	Exclude *xo.Value
+	Exclude []*glob.Glob
 	// UseIndexNames toggles using index names.
 	//
 	// This is not enabled by default, because index names are often generated
@@ -142,22 +163,6 @@ type OutParams struct {
 	Single string
 	// Debug toggles direct writing of files to disk, skipping post processing.
 	Debug bool
-}
-
-// Run runs the code generation.
-func Run(ctx context.Context, name string) {
-	dir := parseArg("--src", "-d", os.Args)
-	template := parseArg("--template", "-t", os.Args)
-	ts, err := NewTemplateSet(ctx, dir, template)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-	// create args
-	args := NewArgs(ts.Target(), ts.Targets()...)
-	// create root command
-	opts := RootCommand(ctx, name, ts, args)
-	ox.RunContext(ctx, opts...)
 }
 
 // NewTemplateSet creates a new templates set.
@@ -192,7 +197,7 @@ func NewTemplateSet(ctx context.Context, dir, template string) (*templates.Set, 
 }
 
 // RootCommand creates the root command.
-func RootCommand(ctx context.Context, name string, ts *templates.Set, args *Args, cmdargs ...string) []ox.Option {
+func RootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error) {
 	// root
 	opts := []ox.Option{
 		ox.Usage(name, "the templated code generator for databases."),
@@ -206,12 +211,11 @@ func RootCommand(ctx context.Context, name string, ts *templates.Set, args *Args
 	} {
 		subopts, err := f(ts, args)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
+			return nil, err
 		}
 		opts = append(opts, ox.Sub(subopts...))
 	}
-	return opts
+	return opts, nil
 }
 
 // QueryCommand builds the query command options.
@@ -220,20 +224,75 @@ func QueryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	fs := ox.Flags()
 	fs = databaseFlags(fs, args)
 	fs = outFlags(fs, args)
-	fs = fs.String("query", "custom database query (uses stdin if not provided)", ox.Bind(&args.QueryParams.Query), ox.Short("Q")).
-		String("type", "type name", ox.Bind(&args.QueryParams.Type), ox.Short("T")).
-		String("type-comment", "type comment", ox.Bind(&args.QueryParams.TypeComment)).
-		String("func", "func name", ox.Bind(&args.QueryParams.Func), ox.Short("F")).
-		String("func-comment", "func comment", ox.Bind(&args.QueryParams.FuncComment)).
-		Bool("trim", "enable trimming whitespace", ox.Bind(&args.QueryParams.Trim), ox.Short("M")).
-		Bool("strip", "enable stripping type casts", ox.Bind(&args.QueryParams.Strip), ox.Short("B")).
-		Bool("one", "enable returning single (only one) result", ox.Bind(&args.QueryParams.One), ox.Short("1")).
-		Bool("flat", "enable returning unstructured (flat) values", ox.Bind(&args.QueryParams.Flat), ox.Short("l")).
-		Bool("exec", "enable exec (disables query introspection)", ox.Bind(&args.QueryParams.Exec), ox.Short("X")).
-		Bool("interpolate", "enable interpolation of embedded params", ox.Bind(&args.QueryParams.Interpolate), ox.Short("I")).
-		String("delimiter", "delimiter used for embedded params", ox.Bind(&args.QueryParams.Delimiter), ox.Short("L"), ox.Default("%%")).
-		String("fields", "override field names for results", ox.Bind(&args.QueryParams.Fields), ox.Short("Z")).
-		Bool("allow-nulls", "allow result fields with NULL values", ox.Bind(&args.QueryParams.AllowNulls), ox.Short("U"))
+	fs = fs.
+		String(
+			"query", "custom database query (uses stdin if not provided)",
+			ox.Bind(&args.QueryParams.Query),
+			ox.Short("Q"),
+		).
+		String(
+			"type", "type name",
+			ox.Bind(&args.QueryParams.Type),
+			ox.Short("T"),
+		).
+		String(
+			"type-comment", "type comment",
+			ox.Bind(&args.QueryParams.TypeComment),
+		).
+		String(
+			"func", "func name",
+			ox.Bind(&args.QueryParams.Func),
+			ox.Short("F")).
+		String(
+			"func-comment", "func comment",
+			ox.Bind(&args.QueryParams.FuncComment),
+		).
+		Bool(
+			"trim", "enable trimming whitespace",
+			ox.Bind(&args.QueryParams.Trim),
+			ox.Short("M"),
+		).
+		Bool(
+			"strip", "enable stripping type casts",
+			ox.Bind(&args.QueryParams.Strip),
+			ox.Short("B"),
+		).
+		Bool(
+			"one", "enable returning single (only one) result",
+			ox.Bind(&args.QueryParams.One),
+			ox.Short("1"),
+		).
+		Bool(
+			"flat", "enable returning unstructured (flat) values",
+			ox.Bind(&args.QueryParams.Flat),
+			ox.Short("l"),
+		).
+		Bool(
+			"exec", "enable exec (disables query introspection)",
+			ox.Bind(&args.QueryParams.Exec),
+			ox.Short("X"),
+		).
+		Bool(
+			"interpolate", "enable interpolation of embedded params",
+			ox.Bind(&args.QueryParams.Interpolate),
+			ox.Short("I"),
+		).
+		String(
+			"delimiter", "delimiter used for embedded params",
+			ox.Bind(&args.QueryParams.Delimiter),
+			ox.Short("L"),
+			ox.Default("%%"),
+		).
+		String(
+			"fields", "override field names for results",
+			ox.Bind(&args.QueryParams.Fields),
+			ox.Short("Z"),
+		).
+		Bool(
+			"allow-nulls", "allow result fields with NULL values",
+			ox.Bind(&args.QueryParams.AllowNulls),
+			ox.Short("U"),
+		)
 	var err error
 	if fs, err = templateFlags(fs, ts, true, args); err != nil {
 		return nil, err
@@ -253,15 +312,36 @@ func SchemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	fs := ox.Flags()
 	fs = databaseFlags(fs, args)
 	fs = outFlags(fs, args)
-	fs.Var("fk-mode", args.SchemaParams.FkMode.Desc(), ox.Bind(args.SchemaParams.FkMode), ox.Short("k")).
-		Var("include", args.SchemaParams.Include.Desc(), ox.Bind(args.SchemaParams.Include), ox.Short("i")).
-		Var("exclude", args.SchemaParams.Exclude.Desc(), ox.Bind(args.SchemaParams.Exclude), ox.Short("e")).
-		Bool("use-index-names", "use index names as defined in schema for generated code", ox.Bind(&args.SchemaParams.UseIndexNames), ox.Short("j"))
+	fs = fs.
+		String(
+			"fk-mode", "foreign key resolution mode",
+			ox.Default("smart"),
+			ox.Bind(&args.SchemaParams.FkMode),
+			ox.Short("k"),
+			ox.Valid("smart", "parent", "field", "key"),
+		).
+		Slice(
+			"include", "include types",
+			ox.Bind(&args.SchemaParams.Include),
+			ox.Elem(ox.GlobT),
+			ox.Short("i"),
+		).
+		Slice(
+			"exclude", "exclude types",
+			ox.Bind(&args.SchemaParams.Exclude),
+			ox.Short("e"),
+			ox.Elem(ox.GlobT),
+		).
+		Bool(
+			"use-index-names", "use index names as defined in schema for generated code",
+			ox.Bind(&args.SchemaParams.UseIndexNames),
+			ox.Short("j"),
+		)
 	var err error
 	if fs, err = templateFlags(fs, ts, true, args); err != nil {
 		return nil, err
 	}
-	if fs, err = loaderFlags(fs, args); err != nil {
+	if fs, err = loaderFlags(fs); err != nil {
 		return nil, err
 	}
 	return []ox.Option{
@@ -288,7 +368,7 @@ func DumpCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 		fs,
 		ox.Exec(func(ctx context.Context, v []string) error {
 			// set template
-			ts.Use(args.TemplateParams.Type.AsString())
+			ts.Use(args.TemplateParams.Type)
 			// get template src
 			src, err := ts.Src()
 			if err != nil {
@@ -319,23 +399,40 @@ func DumpCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 // databaseFlags adds database flags to the flag set.
 func databaseFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
 	return fs.
-		String("schema", "database schema name", ox.Bind(&args.LoaderParams.Schema), ox.Short("s"))
+		String(
+			"schema", "database schema name",
+			ox.Bind(&args.LoaderParams.Schema),
+			ox.Short("s"),
+		)
 	// cmd.SetUsageTemplate(cmd.UsageTemplate() + "\nArgs:\n  <database url>  database url (e.g., postgres://user:pass@localhost:port/dbname, mysql://... )\n\n")
 }
 
 // outFlags adds out flags to the flag set.
 func outFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
 	return fs.
-		String("out", "out path", ox.Bind(&args.OutParams.Out), ox.Short("o"), ox.Default("models")).
-		Bool("debug", "debug generated code (writes generated code to disk without post processing)", ox.Bind(&args.OutParams.Debug), ox.Short("D")).
-		String("single", "output all contents to the specified file", ox.Bind(&args.OutParams.Single), ox.Short("S"))
+		String(
+			"out", "out path",
+			ox.Bind(&args.OutParams.Out),
+			ox.Short("o"),
+			ox.Default("models"),
+		).
+		Bool(
+			"debug", "debug generated code (writes generated code to disk without post processing)",
+			ox.Bind(&args.OutParams.Debug),
+			ox.Short("D"),
+		).
+		String(
+			"single", "output all contents to the specified file",
+			ox.Bind(&args.OutParams.Single),
+			ox.Short("S"),
+		)
 }
 
 // loaderFlags adds database loader flags to the flag set.
-func loaderFlags(fs *ox.FlagSet, args *Args) (*ox.FlagSet, error) {
+func loaderFlags(fs *ox.FlagSet) (*ox.FlagSet, error) {
 	var err error
-	for _, flag := range loader.Flags() {
-		if fs, err = flag.Add(fs, args.LoaderParams.Flags); err != nil {
+	for _, set := range loader.Flags() {
+		if fs, err = addFlag(fs, set); err != nil {
 			return nil, err
 		}
 	}
@@ -344,13 +441,24 @@ func loaderFlags(fs *ox.FlagSet, args *Args) (*ox.FlagSet, error) {
 
 // templateFlags adds template flags to the flag set.
 func templateFlags(fs *ox.FlagSet, ts *templates.Set, extra bool, args *Args) (*ox.FlagSet, error) {
-	fs = fs.Var("template", args.TemplateParams.Type.Desc(), ox.Bind(args.TemplateParams.Type), ox.Short("t"))
+	fs = fs.
+		Var(
+			"template", "template type",
+			ox.Bind(&args.TemplateParams.Type),
+			ox.Short("t"),
+			ox.Valid(args.TemplateTypes...),
+		)
 	if extra {
-		fs = fs.String("src", "template source directory", ox.Bind(&args.TemplateParams.Src), ox.Short("d"))
+		fs = fs.
+			String(
+				"src", "template source directory",
+				ox.Bind(&args.TemplateParams.Src),
+				ox.Short("d"),
+			)
 		var err error
 		for _, name := range ts.Targets() {
-			for _, flag := range ts.Flags(name) {
-				if fs, err = flag.Add(fs, args.TemplateParams.Flags); err != nil {
+			for _, set := range ts.Flags(name) {
+				if fs, err = addFlag(fs, set); err != nil {
 					return nil, err
 				}
 			}
@@ -359,7 +467,7 @@ func templateFlags(fs *ox.FlagSet, ts *templates.Set, extra bool, args *Args) (*
 	return fs, nil
 }
 
-func parseArg(short, full string, args []string) (s string) {
+func parseArg(full, short string, args []string) (s string) {
 	defer func() {
 		s = strings.TrimSpace(s)
 	}()
@@ -386,7 +494,7 @@ func Exec(mode string, ts *templates.Set, args *Args) func(context.Context, []st
 			return err
 		}
 		// set template
-		ts.Use(args.TemplateParams.Type.AsString())
+		ts.Use(args.TemplateParams.Type)
 		// build context
 		ctx = BuildContext(ctx, args)
 		// enable verbose output for sql queries
@@ -483,11 +591,11 @@ func checkArgs(ctx context.Context, mode string, ts *templates.Set, args *Args) 
 func BuildContext(ctx context.Context, args *Args) context.Context {
 	// add loader flags
 	for k, v := range args.LoaderParams.Flags {
-		ctx = context.WithValue(ctx, k, v.Interface())
+		ctx = context.WithValue(ctx, k, v.Val())
 	}
 	// add template flags
 	for k, v := range args.TemplateParams.Flags {
-		ctx = context.WithValue(ctx, k, v.Interface())
+		ctx = context.WithValue(ctx, k, v.Val())
 	}
 	// add out
 	ctx = context.WithValue(ctx, xo.OutKey, args.OutParams.Out)
@@ -565,4 +673,47 @@ func isDir(dir string) bool {
 		return fi.IsDir()
 	}
 	return false
+}
+
+// addFlag adds the flag to the cmd.
+func addFlag(fs *ox.FlagSet, set xo.FlagSet) (*ox.FlagSet, error) {
+	typ := ox.StringT
+	switch set.Flag.Type {
+	case "string":
+	case "bool":
+		typ = ox.BoolT
+	case "int":
+		typ = ox.IntT
+	case "[]string":
+		typ = ox.SliceT
+	case "glob":
+		typ = ox.GlobT
+	default:
+		return nil, fmt.Errorf("unknown flag type %s", set.Flag.Type)
+	}
+	opts := []ox.Option{
+		typ,
+		ox.Hidden(set.Flag.Hidden),
+	}
+	if set.Flag.Short != "" {
+		opts = append(opts, ox.Short(set.Flag.Short))
+	}
+	if set.Flag.Default != nil {
+		if s, ok := set.Flag.Default.(string); ok && s != "" {
+			opts = append(opts, ox.Default(set.Flag.Default))
+		}
+	}
+	if len(set.Flag.Aliases) != 0 {
+		opts = append(opts, ox.Aliases(set.Flag.Aliases...))
+	}
+	desc := set.Flag.Desc
+	if set.Flag.Enums != nil {
+		desc += " <" + strings.Join(set.Flag.Enums, "|") + ">"
+		opts = append(opts, ox.Valid(set.Flag.Enums...))
+	}
+	return fs.
+		Var(
+			set.Type+"-"+set.Name, desc,
+			opts...,
+		), nil
 }
