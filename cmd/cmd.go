@@ -37,8 +37,17 @@ func Run(ctx context.Context, name string) {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+	// args
+	args := &Args{
+		TemplateTypes: ts.Targets(),
+		LoaderParams: LoaderParams{
+			Flags: make(map[xo.ContextKey]ox.Value),
+		},
+		TemplateParams: TemplateParams{
+			Flags: make(map[xo.ContextKey]ox.Value),
+		},
+	}
 	// build command
-	args := NewArgs(ts.Target(), ts.Targets()...)
 	opts, err := RootCommand(name, ts, args)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -63,20 +72,6 @@ type Args struct {
 	SchemaParams SchemaParams
 	// OutParams are out parameters.
 	OutParams OutParams
-}
-
-// NewArgs creates args for the provided template names.
-func NewArgs(name string, types ...string) *Args {
-	// default args
-	return &Args{
-		TemplateTypes: types,
-		LoaderParams: LoaderParams{
-			Flags: make(map[xo.ContextKey]ox.Value),
-		},
-		TemplateParams: TemplateParams{
-			Flags: make(map[xo.ContextKey]ox.Value),
-		},
-	}
 }
 
 // LoaderParams are loader parameters.
@@ -446,6 +441,7 @@ func templateFlags(fs *ox.FlagSet, ts *templates.Set, extra bool, args *Args) (*
 			"template", "template type",
 			ox.Bind(&args.TemplateParams.Type),
 			ox.Short("t"),
+			ox.Default(ts.Target()),
 			ox.Valid(args.TemplateTypes...),
 		)
 	if extra {
