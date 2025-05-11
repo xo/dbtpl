@@ -15,8 +15,8 @@ import (
 	xo "github.com/xo/dbtpl/types"
 )
 
-// LoadSchema loads a schema from a database.
-func LoadSchema(ctx context.Context, set *xo.Set, args *Args) error {
+// loadSchema loads a schema from a database.
+func loadSchema(ctx context.Context, set *xo.Set, args *Args) error {
 	driver, _, schemaName := xo.DriverDbSchema(ctx)
 	schema := xo.Schema{
 		Driver: driver,
@@ -24,22 +24,22 @@ func LoadSchema(ctx context.Context, set *xo.Set, args *Args) error {
 	}
 	var err error
 	// load enums, procs, tables, views
-	if schema.Enums, err = LoadEnums(ctx, args); err != nil {
+	if schema.Enums, err = loadEnums(ctx, args); err != nil {
 		return err
 	}
-	if schema.Procs, err = LoadProcs(ctx, args); err != nil {
+	if schema.Procs, err = loadProcs(ctx, args); err != nil {
 		return err
 	}
-	if schema.Tables, err = LoadTables(ctx, args, "table"); err != nil {
+	if schema.Tables, err = loadTables(ctx, args, "table"); err != nil {
 		return err
 	}
-	if schema.Views, err = LoadTables(ctx, args, "view"); err != nil {
+	if schema.Views, err = loadTables(ctx, args, "view"); err != nil {
 		return err
 	}
 	// fix enums for mysql
 	if driver == "mysql" {
-		for i := 0; i < len(schema.Tables); i++ {
-			for j := 0; j < len(schema.Tables[i].Columns); j++ {
+		for i := range len(schema.Tables) {
+			for j := range len(schema.Tables[i].Columns) {
 				if e := schema.EnumByName(schema.Tables[i].Columns[j].Type.Type); e != nil {
 					schema.Tables[i].Columns[j].Type.Enum = e
 				}
@@ -51,8 +51,8 @@ func LoadSchema(ctx context.Context, set *xo.Set, args *Args) error {
 	return nil
 }
 
-// LoadEnums loads enums.
-func LoadEnums(ctx context.Context, args *Args) ([]xo.Enum, error) {
+// loadEnums loads enums.
+func loadEnums(ctx context.Context, args *Args) ([]xo.Enum, error) {
 	// load enums
 	enumNames, err := loader.Enums(ctx)
 	if err != nil {
@@ -70,7 +70,7 @@ func LoadEnums(ctx context.Context, args *Args) ([]xo.Enum, error) {
 		e := &xo.Enum{
 			Name: enum.EnumName,
 		}
-		if err := LoadEnumValues(ctx, args, e); err != nil {
+		if err := loadEnumValues(ctx, args, e); err != nil {
 			return nil, err
 		}
 		enums = append(enums, *e)
@@ -78,8 +78,8 @@ func LoadEnums(ctx context.Context, args *Args) ([]xo.Enum, error) {
 	return enums, nil
 }
 
-// LoadEnumValues loads enum values.
-func LoadEnumValues(ctx context.Context, args *Args, enum *xo.Enum) error {
+// loadEnumValues loads enum values.
+func loadEnumValues(ctx context.Context, _ *Args, enum *xo.Enum) error {
 	// load enum values
 	enumValues, err := loader.EnumValues(ctx, enum.Name)
 	if err != nil {
@@ -95,8 +95,8 @@ func LoadEnumValues(ctx context.Context, args *Args, enum *xo.Enum) error {
 	return nil
 }
 
-// LoadProcs loads stored procedures definitions.
-func LoadProcs(ctx context.Context, args *Args) ([]xo.Proc, error) {
+// loadProcs loads stored procedures definitions.
+func loadProcs(ctx context.Context, args *Args) ([]xo.Proc, error) {
 	driver, _, _ := xo.DriverDbSchema(ctx)
 	// load procs
 	procs, err := loader.Procs(ctx)
@@ -135,7 +135,7 @@ func LoadProcs(ctx context.Context, args *Args) ([]xo.Proc, error) {
 			Definition: strings.TrimSpace(proc.ProcDef),
 		}
 		// load proc parameters
-		if err := LoadProcParams(ctx, args, p); err != nil {
+		if err := loadProcParams(ctx, args, p); err != nil {
 			return nil, err
 		}
 		procMap[proc.ProcID] = *p
@@ -156,8 +156,8 @@ func LoadProcs(ctx context.Context, args *Args) ([]xo.Proc, error) {
 	return m, nil
 }
 
-// LoadProcParams loads stored procedure parameters.
-func LoadProcParams(ctx context.Context, args *Args, proc *xo.Proc) error {
+// loadProcParams loads stored procedure parameters.
+func loadProcParams(ctx context.Context, args *Args, proc *xo.Proc) error {
 	driver, _, _ := xo.DriverDbSchema(ctx)
 	// load proc params
 	params, err := loader.ProcParams(ctx, proc.ID)
@@ -182,8 +182,8 @@ func LoadProcParams(ctx context.Context, args *Args, proc *xo.Proc) error {
 	return nil
 }
 
-// LoadTables loads types for the type (ie, table/view definitions).
-func LoadTables(ctx context.Context, args *Args, typ string) ([]xo.Table, error) {
+// loadTables loads types for the type (ie, table/view definitions).
+func loadTables(ctx context.Context, args *Args, typ string) ([]xo.Table, error) {
 	// load tables
 	tables, err := loader.Tables(ctx, typ)
 	if err != nil {
@@ -211,26 +211,26 @@ func LoadTables(ctx context.Context, args *Args, typ string) ([]xo.Table, error)
 		}
 
 		// process columns
-		if err := LoadColumns(ctx, args, t); err != nil {
+		if err := loadColumns(ctx, args, t); err != nil {
 			return nil, err
 		}
 		// load indexes
-		if err := LoadTableIndexes(ctx, args, t); err != nil {
+		if err := loadTableIndexes(ctx, args, t); err != nil {
 			return nil, err
 		}
 		m = append(m, *t)
 	}
 	// load foreign keys
 	for i, table := range m {
-		if m[i].ForeignKeys, err = LoadTableForeignKeys(ctx, args, m, table); err != nil {
+		if m[i].ForeignKeys, err = loadTableForeignKeys(ctx, args, m, table); err != nil {
 			return nil, err
 		}
 	}
 	return m, nil
 }
 
-// LoadColumns loads table/view columns.
-func LoadColumns(ctx context.Context, args *Args, table *xo.Table) error {
+// loadColumns loads table/view columns.
+func loadColumns(ctx context.Context, args *Args, table *xo.Table) error {
 	driver, _, _ := xo.DriverDbSchema(ctx)
 	// load sequences
 	sequences, err := loader.TableSequences(ctx, table.Name)
@@ -283,8 +283,8 @@ func LoadColumns(ctx context.Context, args *Args, table *xo.Table) error {
 	return nil
 }
 
-// LoadTableIndexes loads index definitions per table.
-func LoadTableIndexes(ctx context.Context, args *Args, table *xo.Table) error {
+// loadTableIndexes loads index definitions per table.
+func loadTableIndexes(ctx context.Context, args *Args, table *xo.Table) error {
 	// load indexes
 	indexes, err := loader.TableIndexes(ctx, table.Name)
 	if err != nil {
@@ -305,7 +305,7 @@ func LoadTableIndexes(ctx context.Context, args *Args, table *xo.Table) error {
 			IsUnique:  index.IsUnique,
 		}
 		// load index columns
-		if err := LoadIndexColumns(ctx, args, table, index); err != nil {
+		if err := loadIndexColumns(ctx, args, table, index); err != nil {
 			return err
 		}
 		// load index func name
@@ -347,8 +347,8 @@ func LoadTableIndexes(ctx context.Context, args *Args, table *xo.Table) error {
 	return nil
 }
 
-// LoadIndexColumns loads the index column information.
-func LoadIndexColumns(ctx context.Context, args *Args, table *xo.Table, index *xo.Index) error {
+// loadIndexColumns loads the index column information.
+func loadIndexColumns(ctx context.Context, args *Args, table *xo.Table, index *xo.Index) error {
 	// load index columns
 	cols, err := loader.IndexColumns(ctx, table.Name, index.Name)
 	if err != nil {
@@ -373,8 +373,8 @@ func LoadIndexColumns(ctx context.Context, args *Args, table *xo.Table, index *x
 	return nil
 }
 
-// LoadTableForeignKeys loads foreign key definitions per table.
-func LoadTableForeignKeys(ctx context.Context, args *Args, tables []xo.Table, table xo.Table) ([]xo.ForeignKey, error) {
+// loadTableForeignKeys loads foreign key definitions per table.
+func loadTableForeignKeys(ctx context.Context, args *Args, tables []xo.Table, table xo.Table) ([]xo.ForeignKey, error) {
 	// load foreign keys
 	foreignKeys, err := loader.TableForeignKeys(ctx, table.Name)
 	if err != nil {

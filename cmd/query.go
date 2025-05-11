@@ -13,11 +13,11 @@ import (
 	xo "github.com/xo/dbtpl/types"
 )
 
-// LoadQuery loads a query.
-func LoadQuery(ctx context.Context, set *xo.Set, args *Args) error {
+// loadQuery loads a query.
+func loadQuery(ctx context.Context, set *xo.Set, args *Args) error {
 	driver, _, _ := xo.DriverDbSchema(ctx)
 	// introspect query if not exec mode
-	query, inspect, comments, fields, err := ParseQuery(
+	query, inspect, comments, fields, err := parseQuery(
 		ctx,
 		args.QueryParams.Query,
 		args.QueryParams.Delimiter,
@@ -31,7 +31,7 @@ func LoadQuery(ctx context.Context, set *xo.Set, args *Args) error {
 	var typeFields []xo.Field
 	if !args.QueryParams.Exec {
 		// build query type
-		typeFields, err = LoadQueryFields(
+		typeFields, err = loadQueryFields(
 			ctx,
 			inspect,
 			args.QueryParams.Fields,
@@ -61,16 +61,16 @@ func LoadQuery(ctx context.Context, set *xo.Set, args *Args) error {
 	return nil
 }
 
-// ParseQuery parses a query returning the processed query, a query for
+// parseQuery parses a query returning the processed query, a query for
 // introspection, related comments, and extracted params.
-func ParseQuery(ctx context.Context, sqlstr, delimiter string, interpolate, trim, strip bool) ([]string, []string, []string, []xo.Field, error) {
+func parseQuery(ctx context.Context, sqlstr, delimiter string, interpolate, trim, strip bool) ([]string, []string, []string, []xo.Field, error) {
 	// nth func
 	nth, err := loader.NthParam(ctx)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	// build query
-	qstr, fields, err := ParseQueryFields(
+	qstr, fields, err := parseQueryFields(
 		sqlstr,
 		delimiter,
 		interpolate,
@@ -81,7 +81,7 @@ func ParseQuery(ctx context.Context, sqlstr, delimiter string, interpolate, trim
 		return nil, nil, nil, nil, err
 	}
 	// build introspection query
-	istr, _, err := ParseQueryFields(
+	istr, _, err := parseQueryFields(
 		sqlstr,
 		delimiter,
 		interpolate,
@@ -119,12 +119,12 @@ func ParseQuery(ctx context.Context, sqlstr, delimiter string, interpolate, trim
 	return query, inspect, comments, fields, nil
 }
 
-// ParseQueryFields takes a SQL query and looks for strings in the form of
+// parseQueryFields takes a SQL query and looks for strings in the form of
 // "<delim><name> <type>[,<option>,...]<delim>", replacing them with the nth
 // param value.
 //
 // The modified query is returned, along with any extracted parameters.
-func ParseQueryFields(query, delim string, interpolate, paramInterpolate bool, nth func(int) string) (string, []xo.Field, error) {
+func parseQueryFields(query, delim string, interpolate, paramInterpolate bool, nth func(int) string) (string, []xo.Field, error) {
 	// create regexp for delimiter
 	placeholderRE, err := regexp.Compile(delim + `[^` + delim[:1] + `]+` + delim)
 	if err != nil {
@@ -196,25 +196,25 @@ func ParseQueryFields(query, delim string, interpolate, paramInterpolate bool, n
 	return sqlstr + query[last:], fields, nil
 }
 
-// LoadQueryFields loads the query type fields.
-func LoadQueryFields(ctx context.Context, query []string, fields string, allowNulls, flat bool) ([]xo.Field, error) {
+// loadQueryFields loads the query type fields.
+func loadQueryFields(ctx context.Context, query []string, fields string, allowNulls, flat bool) ([]xo.Field, error) {
 	// introspect or use defined user fields
-	f := Introspect
+	f := introspect
 	if fields != "" {
 		// wrap ...
 		f = func(context.Context, []string, bool, bool) ([]xo.Field, error) {
-			return SplitFields(fields)
+			return splitFields(fields)
 		}
 	}
 	return f(ctx, query, allowNulls, flat)
 }
 
-// Introspect creates a view of a query, introspecting the query's columns and
+// introspect creates a view of a query, introspecting the query's columns and
 // returning as fields.
 //
 // Creates a temporary view/table, retrieves its column definitions and
 // dropping the temporary view/table.
-func Introspect(ctx context.Context, query []string, allowNulls, flat bool) ([]xo.Field, error) {
+func introspect(ctx context.Context, query []string, allowNulls, flat bool) ([]xo.Field, error) {
 	// determine prefix
 	driver, _, _ := xo.DriverDbSchema(ctx)
 	prefix := "_xo_"
@@ -276,10 +276,10 @@ func Introspect(ctx context.Context, query []string, allowNulls, flat bool) ([]x
 // letters are used for random IDs.
 const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
 
-// SplitFields splits s (comma separated) into fields.
-func SplitFields(s string) ([]xo.Field, error) {
+// splitFields splits s (comma separated) into fields.
+func splitFields(s string) ([]xo.Field, error) {
 	var fields []xo.Field
-	for _, field := range strings.Split(s, ",") {
+	for field := range strings.SplitSeq(s, ",") {
 		// process fields
 		field = strings.TrimSpace(field)
 		name, typ := field, "string"

@@ -49,7 +49,7 @@ func Run(ctx context.Context, name string) {
 		},
 	}
 	// build command
-	opts, err := RootCommand(name, ts, args)
+	opts, err := rootCommand(name, ts, args)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
@@ -196,8 +196,8 @@ func newTemplateSet(ctx context.Context, dir, template string) (*templates.Set, 
 	return ts, nil
 }
 
-// RootCommand creates the root command.
-func RootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error) {
+// rootCommand creates the root command.
+func rootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error) {
 	// root
 	opts := []ox.Option{
 		ox.Usage(name, "the templated code generator for databases."),
@@ -211,9 +211,9 @@ func RootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error
 	}
 	// add sub commands
 	for _, f := range []func(*templates.Set, *Args) ([]ox.Option, error){
-		QueryCommand,
-		SchemaCommand,
-		DumpCommand,
+		queryCommand,
+		schemaCommand,
+		dumpCommand,
 	} {
 		subopts, err := f(ts, args)
 		if err != nil {
@@ -224,8 +224,8 @@ func RootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error
 	return opts, nil
 }
 
-// QueryCommand builds the query command options.
-func QueryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
+// queryCommand builds the query command options.
+func queryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	// query flags
 	fs := ox.Flags()
 	fs = databaseFlags(fs, args)
@@ -309,12 +309,12 @@ func QueryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 		ox.Spec("[flags] <database url>"),
 		ox.ValidArgs(1, 1),
 		fs,
-		ox.Exec(Exec("query", ts, args)),
+		ox.Exec(exec("query", ts, args)),
 	}, nil
 }
 
-// SchemaCommand builds the schema command options.
-func SchemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
+// schemaCommand builds the schema command options.
+func schemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	// schema flags
 	fs := ox.Flags()
 	fs = databaseFlags(fs, args)
@@ -357,12 +357,12 @@ func SchemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 		ox.Spec("[flags] <database url>"),
 		ox.ValidArgs(1, 1),
 		fs,
-		ox.Exec(Exec("schema", ts, args)),
+		ox.Exec(exec("schema", ts, args)),
 	}, nil
 }
 
-// DumpCommand builds the dump command options.
-func DumpCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
+// dumpCommand builds the dump command options.
+func dumpCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	// dump flags
 	fs := ox.Flags()
 	fs, err := templateFlags(fs, ts, false, args)
@@ -413,7 +413,6 @@ func databaseFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
 			ox.Bind(&args.LoaderParams.Schema),
 			ox.Short("s"),
 		)
-	// cmd.SetUsageTemplate(cmd.UsageTemplate() + "\nArgs:\n  <database url>  database url (e.g., postgres://user:pass@localhost:port/dbname, mysql://... )\n\n")
 }
 
 // outFlags adds out flags to the flag set.
@@ -477,36 +476,17 @@ func templateFlags(fs *ox.FlagSet, ts *templates.Set, extra bool, args *Args) (*
 	return fs, nil
 }
 
-func parseArg(full, short string, args []string) (s string) {
-	defer func() {
-		s = strings.TrimSpace(s)
-	}()
-	for i := range args {
-		switch s := strings.TrimSpace(args[i]); {
-		case s == short, s == full:
-			if i < len(args)-1 {
-				return args[i+1]
-			}
-		case strings.HasPrefix(s, short):
-			return strings.TrimPrefix(s, short)
-		case strings.HasPrefix(s, full):
-			return strings.TrimPrefix(s, full)
-		}
-	}
-	return ""
-}
-
-// Exec handles the execution for query and schema.
-func Exec(mode string, ts *templates.Set, args *Args) func(context.Context, []string) error {
+// exec creates a exec func for the mode (schema/query).
+func exec(mode string, ts *templates.Set, args *Args) func(context.Context, []string) error {
 	return func(ctx context.Context, cmdargs []string) error {
-		// setup args
+		// check args
 		if err := checkArgs(mode, ts, args); err != nil {
 			return err
 		}
 		// set template
 		ts.Use(args.TemplateParams.Type)
 		// build context
-		ctx = BuildContext(ctx, args)
+		ctx = buildContext(ctx, args)
 		// enable verbose output for sql queries
 		if args.Verbose {
 			models.SetLogger(func(str string, v ...any) {
@@ -527,13 +507,13 @@ func Exec(mode string, ts *templates.Set, args *Args) func(context.Context, []st
 		if err != nil {
 			return err
 		}
-		return Generate(ctx, mode, ts, set, args)
+		return generate(ctx, mode, ts, set, args)
 	}
 }
 
-// Generate generates the dbtpl files with the provided templates, data, and
+// generate generates the dbtpl files with the provided templates, data, and
 // arguments.
-func Generate(ctx context.Context, mode string, ts *templates.Set, set *xo.Set, args *Args) error {
+func generate(ctx context.Context, mode string, ts *templates.Set, set *xo.Set, args *Args) error {
 	// create set context
 	ctx = ts.NewContext(ctx, mode)
 	if err := displayErrors(ts); err != nil {
@@ -595,8 +575,8 @@ func checkArgs(mode string, ts *templates.Set, args *Args) error {
 	return nil
 }
 
-// BuildContext builds a context for the mode and template.
-func BuildContext(ctx context.Context, args *Args) context.Context {
+// buildContext builds a context for the mode and template.
+func buildContext(ctx context.Context, args *Args) context.Context {
 	// add loader flags
 	for k, v := range args.LoaderParams.Flags {
 		ctx = context.WithValue(ctx, k, v.Val())
@@ -645,9 +625,9 @@ func open(ctx context.Context, urlstr, schema string) (context.Context, error) {
 
 // load loads a set of queries or schemas.
 func load(ctx context.Context, mode string, _ *templates.Set, args *Args) (*xo.Set, error) {
-	f := LoadSchema
+	f := loadSchema
 	if mode == "query" {
-		f = LoadQuery
+		f = loadQuery
 	}
 	set := new(xo.Set)
 	if err := f(ctx, set, args); err != nil {
@@ -681,6 +661,26 @@ func isDir(dir string) bool {
 		return fi.IsDir()
 	}
 	return false
+}
+
+// parseArg peeks at a flag in args.
+func parseArg(full, short string, args []string) (s string) {
+	defer func() {
+		s = strings.TrimSpace(s)
+	}()
+	for i := range args {
+		switch s := strings.TrimSpace(args[i]); {
+		case s == short, s == full:
+			if i < len(args)-1 {
+				return args[i+1]
+			}
+		case strings.HasPrefix(s, short):
+			return strings.TrimPrefix(s, short)
+		case strings.HasPrefix(s, full):
+			return strings.TrimPrefix(s, full)
+		}
+	}
+	return ""
 }
 
 // addFlag adds the flag to the cmd.
