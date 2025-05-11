@@ -4,6 +4,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	iofs "io/fs"
@@ -28,7 +29,7 @@ import (
 // Run runs the code generation.
 func Run(ctx context.Context, name string) {
 	// peek template set
-	ts, err := NewTemplateSet(
+	ts, err := newTemplateSet(
 		ctx,
 		parseArg("--src", "-d", os.Args),
 		parseArg("--template", "-t", os.Args),
@@ -86,8 +87,12 @@ type LoaderParams struct {
 type TemplateParams struct {
 	// Type is the name of the template.
 	Type string
+	// TypeChanged is the changed flag for type.
+	TypeChanged bool
 	// Src is the src directory of the template.
 	Src string
+	// SrcChanged is the changed flag for src.
+	SrcChanged bool
 	// Flags are additional template flags.
 	Flags map[xo.ContextKey]ox.Value
 }
@@ -160,8 +165,8 @@ type OutParams struct {
 	Debug bool
 }
 
-// NewTemplateSet creates a new templates set.
-func NewTemplateSet(ctx context.Context, dir, template string) (*templates.Set, error) {
+// newTemplateSet creates a new templates set.
+func newTemplateSet(ctx context.Context, dir, template string) (*templates.Set, error) {
 	// build template ts
 	ts := templates.NewDefaultTemplateSet(ctx)
 	switch {
@@ -197,6 +202,12 @@ func RootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error
 	opts := []ox.Option{
 		ox.Usage(name, "the templated code generator for databases."),
 		ox.Defaults(),
+		ox.Flags().
+			Bool(
+				"verbose", "enable verbose output",
+				ox.Bind(&args.Verbose),
+				ox.Short("v"),
+			),
 	}
 	// add sub commands
 	for _, f := range []func(*templates.Set, *Args) ([]ox.Option, error){
@@ -295,6 +306,7 @@ func QueryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	return []ox.Option{
 		ox.Usage("query", "generate code for a database query from a template"),
 		ox.Banner("Generate code for a database query from a template."),
+		ox.Spec("[flags] <database url>"),
 		ox.ValidArgs(1, 1),
 		fs,
 		ox.Exec(Exec("query", ts, args)),
@@ -342,6 +354,7 @@ func SchemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	return []ox.Option{
 		ox.Usage("schema", "generate code for a database schema from a template"),
 		ox.Banner("Generate code for a database schema from a template."),
+		ox.Spec("[flags] <database url>"),
 		ox.ValidArgs(1, 1),
 		fs,
 		ox.Exec(Exec("schema", ts, args)),
@@ -359,6 +372,7 @@ func DumpCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	return []ox.Option{
 		ox.Usage("dump", "dump template to path"),
 		ox.Banner("Dump template to path."),
+		ox.Spec("[flags] <out dir>"),
 		ox.ValidArgs(1, 1),
 		fs,
 		ox.Exec(func(ctx context.Context, v []string) error {
@@ -439,7 +453,7 @@ func templateFlags(fs *ox.FlagSet, ts *templates.Set, extra bool, args *Args) (*
 	fs = fs.
 		Var(
 			"template", "template type",
-			ox.Bind(&args.TemplateParams.Type),
+			ox.BindSet(&args.TemplateParams.Type, &args.TemplateParams.TypeChanged),
 			ox.Short("t"),
 			ox.Default(ts.Target()),
 			ox.Valid(args.TemplateTypes...),
@@ -448,7 +462,7 @@ func templateFlags(fs *ox.FlagSet, ts *templates.Set, extra bool, args *Args) (*
 		fs = fs.
 			String(
 				"src", "template source directory",
-				ox.Bind(&args.TemplateParams.Src),
+				ox.BindSet(&args.TemplateParams.Src, &args.TemplateParams.SrcChanged),
 				ox.Short("d"),
 			)
 		var err error
@@ -486,7 +500,7 @@ func parseArg(full, short string, args []string) (s string) {
 func Exec(mode string, ts *templates.Set, args *Args) func(context.Context, []string) error {
 	return func(ctx context.Context, cmdargs []string) error {
 		// setup args
-		if err := checkArgs(ctx, mode, ts, args); err != nil {
+		if err := checkArgs(mode, ts, args); err != nil {
 			return err
 		}
 		// set template
@@ -551,17 +565,15 @@ func Generate(ctx context.Context, mode string, ts *templates.Set, set *xo.Set, 
 }
 
 // checkArgs sets up and checks args.
-func checkArgs(ctx context.Context, mode string, ts *templates.Set, args *Args) error {
+func checkArgs(mode string, ts *templates.Set, args *Args) error {
 	// check template is available for the mode
 	if err := ts.For(mode); err != nil {
 		return err
 	}
 	// check --src and --template are exclusive
-	/*
-		if cmd.Flags().Lookup("src").Changed && cmd.Flags().Lookup("template").Changed {
-			return errors.New("--src and --template cannot be used together")
-		}
-	*/
+	if args.TemplateParams.SrcChanged && args.TemplateParams.TypeChanged {
+		return errors.New("--src and --template cannot be used together")
+	}
 	// read query string from stdin if not provided via --query
 	if mode == "query" && args.QueryParams.Query == "" {
 		buf, err := io.ReadAll(os.Stdin)

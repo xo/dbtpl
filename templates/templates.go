@@ -89,7 +89,7 @@ func (ts *Set) LoadDefault(ctx context.Context, name string) error {
 		_, err = ts.Add(ctx, name, sub, true)
 		return err
 	}
-	return fmt.Errorf("unknown target %q", ts.target)
+	return fmt.Errorf("unknown template target %q", name)
 }
 
 // AddTemplates adds templates to the template set from src, adding a template
@@ -184,7 +184,7 @@ func (ts *Set) For(mode string) error {
 func (ts *Set) Src() (fs.FS, error) {
 	target, ok := ts.targets[ts.target]
 	if !ok {
-		return nil, fmt.Errorf("unknown target %q", ts.target)
+		return nil, fmt.Errorf("unknown template target %q", ts.target)
 	}
 	return target.Src, nil
 }
@@ -193,7 +193,7 @@ func (ts *Set) Src() (fs.FS, error) {
 func (ts *Set) NewContext(ctx context.Context, mode string) context.Context {
 	target, ok := ts.targets[ts.target]
 	if !ok {
-		ts.err = fmt.Errorf("unknown target %q", ts.target)
+		ts.err = fmt.Errorf("unknown template target %q", ts.target)
 		return nil
 	}
 	if target.Type.NewContext != nil {
@@ -222,7 +222,7 @@ func (ts *Set) Pre(ctx context.Context, outDir string, mode string, set *xo.Set)
 	target, ok := ts.targets[ts.target]
 	switch {
 	case !ok:
-		ts.err = fmt.Errorf("unknown target %q", ts.target)
+		ts.err = fmt.Errorf("unknown template target %q", ts.target)
 		return
 	case target.Type.Pre == nil:
 		return
@@ -241,7 +241,7 @@ func (ts *Set) Process(ctx context.Context, outDir string, mode string, set *xo.
 	target, ok := ts.targets[ts.target]
 	switch {
 	case !ok:
-		ts.err = fmt.Errorf("unknown target %q", ts.target)
+		ts.err = fmt.Errorf("unknown template target %q", ts.target)
 		return
 	case target.Type.Process == nil:
 		return
@@ -324,7 +324,7 @@ func (ts *Set) Post(ctx context.Context, mode string) {
 	target, ok := ts.targets[ts.target]
 	switch {
 	case !ok:
-		ts.err = fmt.Errorf("unknown target %q", ts.target)
+		ts.err = fmt.Errorf("unknown template target %q", ts.target)
 		return
 	case target.Type.Post == nil:
 		return
