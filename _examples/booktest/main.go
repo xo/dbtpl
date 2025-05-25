@@ -35,7 +35,7 @@ func main() {
 	dsn := flag.String("dsn", "", "dsn")
 	flag.Parse()
 	if err := run(context.Background(), *verbose, *dsn); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
