@@ -1,8 +1,6 @@
 module github.com/xo/dbtpl
 
-go 1.24.2
-
-toolchain go1.24.3
+go 1.24.3
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
@@ -17,14 +15,14 @@ require (
 	github.com/sijms/go-ora/v2 v2.8.24
 	github.com/traefik/yaegi v0.16.1
 	github.com/xo/dburl v0.23.8
-	github.com/xo/ox v0.0.0-20250511214916-a8e132d4ceee
+	github.com/xo/ox v0.0.0-20250525220337-fc21a8d340e6
 	github.com/yookoala/realpath v1.0.0
 	golang.org/x/tools v0.33.0
 	mvdan.cc/gofumpt v0.8.0
 )
 
 require (
-	dario.cat/mergo v1.0.1 // indirect
+	dario.cat/mergo v1.0.2 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
