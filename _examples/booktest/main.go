@@ -61,7 +61,7 @@ func run(ctx context.Context, verbose bool, dsn string) error {
 		return err
 	}
 	// open database
-	db, err := passfile.OpenURL(u, v.HomeDir, "xopass")
+	db, err := passfile.OpenURL(u, v.HomeDir, "dbtplpass")
 	if err != nil {
 		return err
 	}
