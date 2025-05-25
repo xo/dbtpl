@@ -2238,10 +2238,8 @@ func OracleType(ctx context.Context) string {
 
 // addInitialisms adds snaker initialisms from the context.
 func addInitialisms(ctx context.Context) error {
-	z := ctx.Value(InitialismKey)
-	y, _ := z.([]string)
 	var v []string
-	for _, s := range y {
+	for _, s := range ctx.Value(InitialismKey).([]string) {
 		if s != "" {
 			v = append(v, s)
 		}

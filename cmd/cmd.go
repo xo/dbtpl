@@ -647,7 +647,23 @@ func buildContext(ctx context.Context, mode string, ts *templates.Templates, arg
 		if !ok {
 			panic(fmt.Sprintf("param %q was not defined in context vars", g.Key()))
 		}
-		ctx = context.WithValue(ctx, g.Flag.ContextKey, v.Val())
+		var z any
+		if g.Flag.Type != "[]string" {
+			z = v.Val()
+		} else {
+			a, ok := v.Val().([]ox.Value)
+			if !ok {
+				panic(fmt.Sprintf("param %q was not []ox.Value in context vars", g.Key()))
+			}
+			s := make([]string, len(a))
+			for i, v := range a {
+				if s[i], ok = v.Val().(string); !ok {
+					panic(fmt.Sprintf("param %q element %d was not string in context vars", g.Key(), i))
+				}
+			}
+			z = s
+		}
+		ctx = context.WithValue(ctx, g.Flag.ContextKey, z)
 	}
 	return ctx
 }
