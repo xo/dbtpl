@@ -13,10 +13,10 @@ require (
 	github.com/kenshaw/snaker v0.4.3
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.28
-	github.com/microsoft/go-mssqldb v1.8.0
+	github.com/microsoft/go-mssqldb v1.8.1
 	github.com/sijms/go-ora/v2 v2.8.24
 	github.com/traefik/yaegi v0.16.1
-	github.com/xo/dburl v0.23.7
+	github.com/xo/dburl v0.23.8
 	github.com/xo/ox v0.0.0-20250511214916-a8e132d4ceee
 	github.com/yookoala/realpath v1.0.0
 	golang.org/x/tools v0.33.0

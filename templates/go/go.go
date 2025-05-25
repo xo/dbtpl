@@ -25,8 +25,6 @@ import (
 	"mvdan.cc/gofumpt/format"
 )
 
-var ErrNoSingle = errors.New("in query exec mode, the --single or -S must be provided")
-
 // Init registers the template.
 func Init(ctx context.Context, f func(xo.TemplateType)) error {
 	knownTypes := map[string]bool{
@@ -98,13 +96,6 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 	f(xo.TemplateType{
 		Modes: []string{"query", "schema"},
 		Flags: []xo.Flag{
-			{
-				ContextKey: AppendKey,
-				Type:       "bool",
-				Desc:       "enable append mode",
-				Short:      "a",
-				Aliases:    []string{"append"},
-			},
 			{
 				ContextKey: NotFirstKey,
 				Type:       "bool",
@@ -184,8 +175,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: ContextKey,
 				Type:       "string",
 				Desc:       "context mode",
-				Default:    "only",
-				Enums:      []string{"disable", "both", "only"},
+				Enums:      []string{"only", "disable", "both"},
 			},
 			{
 				ContextKey: InjectKey,
@@ -208,7 +198,6 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: OracleTypeKey,
 				Type:       "string",
 				Desc:       "oracle driver type",
-				Default:    "ora",
 				Enums:      []string{"ora", "godror"},
 			},
 		},
@@ -250,11 +239,11 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 			if !NotFirst(ctx) && !Append(ctx) {
 				emit(xo.Template{
 					Partial: "db",
-					Dest:    "db.dbtpl.go",
+					Dest:    "dbtpl.dbtpl.go",
 				})
 				// If --single is provided, don't generate header for db.dbtpl.go.
 				if xo.Single(ctx) == "" {
-					files["db.dbtpl.go"] = true
+					files["dbtpl.dbtpl.go"] = true
 				}
 			}
 			if Append(ctx) {
@@ -2114,7 +2103,7 @@ var (
 
 // Append returns append from the context.
 func Append(ctx context.Context) bool {
-	b, _ := ctx.Value(AppendKey).(bool)
+	b, _ := ctx.Value(xo.AppendKey).(bool)
 	return b
 }
 
@@ -2693,3 +2682,5 @@ func addLegacyFuncs(ctx context.Context, funcs template.FuncMap) {
 		return len(fields) - len(pkFields)
 	}
 }
+
+var ErrNoSingle = errors.New("in query exec mode, --single (-S) must be provided")

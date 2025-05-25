@@ -157,7 +157,7 @@ func loadProcs(ctx context.Context, args *Args) ([]xo.Proc, error) {
 }
 
 // loadProcParams loads stored procedure parameters.
-func loadProcParams(ctx context.Context, args *Args, proc *xo.Proc) error {
+func loadProcParams(ctx context.Context, _ *Args, proc *xo.Proc) error {
 	driver, _, _ := xo.DriverDbSchema(ctx)
 	// load proc params
 	params, err := loader.ProcParams(ctx, proc.ID)
@@ -348,7 +348,7 @@ func loadTableIndexes(ctx context.Context, args *Args, table *xo.Table) error {
 }
 
 // loadIndexColumns loads the index column information.
-func loadIndexColumns(ctx context.Context, args *Args, table *xo.Table, index *xo.Index) error {
+func loadIndexColumns(ctx context.Context, _ *Args, table *xo.Table, index *xo.Index) error {
 	// load index columns
 	cols, err := loader.IndexColumns(ctx, table.Name, index.Name)
 	if err != nil {

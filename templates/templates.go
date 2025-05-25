@@ -21,11 +21,11 @@ import (
 	xo "github.com/xo/dbtpl/types"
 )
 
-// Set holds a set of templates and handles generating files for a target
+// Templates holds a set of templates and handles generating files for a target
 // files.
 //
-// Set should not be used more than once to output its contents.
-type Set struct {
+// Note: should not be used more than once to output contents.
+type Templates struct {
 	symbols  map[string]map[string]reflect.Value
 	initfunc string
 	tags     []string
@@ -34,12 +34,12 @@ type Set struct {
 	files    map[string]*EmittedTemplate
 	post     map[string][]byte
 	err      error
-	goTpl    *template.Template
+	tpl      *template.Template
 }
 
-// NewTemplateSet creates a template set.
-func NewTemplateSet(symbols map[string]map[string]reflect.Value, initfunc string, tags ...string) *Set {
-	return &Set{
+// New creates a template set.
+func New(symbols map[string]map[string]reflect.Value, initfunc string, tags ...string) *Templates {
+	return &Templates{
 		symbols:  symbols,
 		initfunc: initfunc,
 		tags:     tags,
@@ -49,17 +49,17 @@ func NewTemplateSet(symbols map[string]map[string]reflect.Value, initfunc string
 	}
 }
 
-// NewDefaultTemplateSet creates a template set using the default symbols, init
+// NewDefaults creates a template set using the default symbols, init
 // func, tags, and embedded templates.
-func NewDefaultTemplateSet(ctx context.Context) *Set {
-	return NewTemplateSet(DefaultSymbols(), DefaultInitFunc, DefaultTags()...)
+func NewDefaults(ctx context.Context) *Templates {
+	return New(DefaultSymbols(), DefaultInitFunc, DefaultTags()...)
 }
 
 // LoadDefaults loads the default templates. Sets the default template target
 // to "go" if available in embedded templates, or to the first available
 // target.
-func (ts *Set) LoadDefaults(ctx context.Context) error {
-	if err := ts.AddTemplates(ctx, files, true); err != nil {
+func (ts *Templates) LoadDefaults(ctx context.Context) error {
+	if err := ts.AddFS(ctx, files, true); err != nil {
 		return err
 	}
 	// determine default target
@@ -73,7 +73,7 @@ func (ts *Set) LoadDefaults(ctx context.Context) error {
 }
 
 // LoadDefault loads a single default target.
-func (ts *Set) LoadDefault(ctx context.Context, name string) error {
+func (ts *Templates) LoadDefault(ctx context.Context, name string) error {
 	dir, err := files.ReadDir(".")
 	if err != nil {
 		return err
@@ -92,9 +92,9 @@ func (ts *Set) LoadDefault(ctx context.Context, name string) error {
 	return fmt.Errorf("unknown template target %q", name)
 }
 
-// AddTemplates adds templates to the template set from src, adding a template
-// for each subdirectory.
-func (ts *Set) AddTemplates(ctx context.Context, src fs.FS, unrestricted bool) error {
+// AddFS adds templates to the template set from the src file system, adding a
+// template for each subdirectory in src.
+func (ts *Templates) AddFS(ctx context.Context, src fs.FS, unrestricted bool) error {
 	// get target dir names
 	var targets []string
 	if err := fs.WalkDir(src, ".", func(n string, d fs.DirEntry, err error) error {
@@ -108,9 +108,8 @@ func (ts *Set) AddTemplates(ctx context.Context, src fs.FS, unrestricted bool) e
 	}); err != nil {
 		return err
 	}
-	sort.Strings(targets)
 	// add templates
-	for _, target := range targets {
+	for _, target := range slices.Sorted(slices.Values(targets)) {
 		src, err := fs.Sub(src, target)
 		if err != nil {
 			return err
@@ -123,7 +122,7 @@ func (ts *Set) AddTemplates(ctx context.Context, src fs.FS, unrestricted bool) e
 }
 
 // Add adds a target from src to the template set.
-func (ts *Set) Add(ctx context.Context, name string, src fs.FS, unrestricted bool) (string, error) {
+func (ts *Templates) Add(ctx context.Context, name string, src fs.FS, unrestricted bool) (string, error) {
 	// create template
 	target, err := ts.NewTemplate(ctx, name, src, unrestricted)
 	if err != nil {
@@ -137,43 +136,37 @@ func (ts *Set) Add(ctx context.Context, name string, src fs.FS, unrestricted boo
 	return target.Name, nil
 }
 
-// Use sets the target being used.
-func (ts *Set) Use(name string) {
+// Use sets the template target to use.
+func (ts *Templates) Use(name string) {
 	ts.target = name
 }
 
-// Target returns the target being used.
-func (ts *Set) Target() string {
+// Target returns the template target.
+func (ts *Templates) Target() string {
 	return ts.target
 }
 
-// Has determines if a template target has been defined.
-func (ts *Set) Has(name string) bool {
+// Has determines if a template target has previously been defined.
+func (ts *Templates) Has(name string) bool {
 	_, ok := ts.targets[name]
 	return ok
 }
 
-// Targets returns the available template targets.
-func (ts *Set) Targets() []string {
-	var targets []string
-	for target := range ts.targets {
-		targets = append(targets, target)
-	}
-	sort.Strings(targets)
-	return targets
+// Targets returns all available template targets.
+func (ts *Templates) Targets() []string {
+	return slices.Sorted(maps.Keys(ts.targets))
 }
 
-// Flags returns flag options for a template target.
-func (ts *Set) Flags(name string) []xo.FlagSet {
-	target, ok := ts.targets[name]
-	if ok {
+// Flags returns the flags defined in a template target.
+func (ts *Templates) Flags(name string) []xo.FlagSet {
+	if target, ok := ts.targets[name]; ok {
 		return target.Flags()
 	}
 	return nil
 }
 
 // For determines if the the template target supports the mode.
-func (ts *Set) For(mode string) error {
+func (ts *Templates) For(mode string) error {
 	if target, ok := ts.targets[ts.target]; ok && slices.Contains(target.Type.Modes, mode) {
 		return nil
 	}
@@ -181,7 +174,7 @@ func (ts *Set) For(mode string) error {
 }
 
 // Src returns template target file source.
-func (ts *Set) Src() (fs.FS, error) {
+func (ts *Templates) Src() (fs.FS, error) {
 	target, ok := ts.targets[ts.target]
 	if !ok {
 		return nil, fmt.Errorf("unknown template target %q", ts.target)
@@ -190,7 +183,7 @@ func (ts *Set) Src() (fs.FS, error) {
 }
 
 // NewContext creates a new context for the template target.
-func (ts *Set) NewContext(ctx context.Context, mode string) context.Context {
+func (ts *Templates) NewContext(ctx context.Context, mode string) context.Context {
 	target, ok := ts.targets[ts.target]
 	if !ok {
 		ts.err = fmt.Errorf("unknown template target %q", ts.target)
@@ -203,7 +196,7 @@ func (ts *Set) NewContext(ctx context.Context, mode string) context.Context {
 }
 
 // addFile returns a function that handles adding templates.
-func (ts *Set) addFile(ctx context.Context) func(xo.Template) {
+func (ts *Templates) addFile(ctx context.Context) func(xo.Template) {
 	return func(t xo.Template) {
 		singleFile := xo.Single(ctx)
 		if singleFile != "" {
@@ -218,7 +211,7 @@ func (ts *Set) addFile(ctx context.Context) func(xo.Template) {
 }
 
 // Pre performs pre processing of the template target.
-func (ts *Set) Pre(ctx context.Context, outDir string, mode string, set *xo.Set) {
+func (ts *Templates) Pre(ctx context.Context, outDir string, mode string, set *xo.Set) {
 	target, ok := ts.targets[ts.target]
 	switch {
 	case !ok:
@@ -237,7 +230,7 @@ func (ts *Set) Pre(ctx context.Context, outDir string, mode string, set *xo.Set)
 }
 
 // Process processes the template target.
-func (ts *Set) Process(ctx context.Context, outDir string, mode string, set *xo.Set) {
+func (ts *Templates) Process(ctx context.Context, outDir string, mode string, set *xo.Set) {
 	target, ok := ts.targets[ts.target]
 	switch {
 	case !ok:
@@ -263,7 +256,7 @@ func (ts *Set) Process(ctx context.Context, outDir string, mode string, set *xo.
 		return
 	}
 	// Parse templates and provide functions if applicable.
-	ts.goTpl = template.New("")
+	ts.tpl = template.New("")
 	var funcs template.FuncMap
 	if target.Type.Funcs != nil {
 		var err error
@@ -272,9 +265,9 @@ func (ts *Set) Process(ctx context.Context, outDir string, mode string, set *xo.
 			ts.err = err
 			return
 		}
-		ts.goTpl = ts.goTpl.Funcs(funcs)
+		ts.tpl = ts.tpl.Funcs(funcs)
 	}
-	ts.goTpl, err = ts.goTpl.ParseFS(fs, "*.tpl")
+	ts.tpl, err = ts.tpl.ParseFS(fs, "*.tpl")
 	if err != nil {
 		ts.err = err
 		return
@@ -299,7 +292,7 @@ func (ts *Set) Process(ctx context.Context, outDir string, mode string, set *xo.
 		})
 		for _, tpl := range emitted.Template {
 			if tpl.Src == "" {
-				err := ts.goTpl.ExecuteTemplate(&emitted.Buf, tpl.Partial, tpl)
+				err := ts.tpl.ExecuteTemplate(&emitted.Buf, tpl.Partial, tpl)
 				if err != nil {
 					ts.files[file].Err = append(ts.files[file].Err, err)
 				}
@@ -310,8 +303,7 @@ func (ts *Set) Process(ctx context.Context, outDir string, mode string, set *xo.
 				ts.files[file].Err = append(ts.files[file].Err, err)
 				continue
 			}
-			err = gotpl.Execute(&emitted.Buf, tpl)
-			if err != nil {
+			if err = gotpl.Execute(&emitted.Buf, tpl); err != nil {
 				ts.files[file].Err = append(ts.files[file].Err, err)
 				continue
 			}
@@ -320,7 +312,7 @@ func (ts *Set) Process(ctx context.Context, outDir string, mode string, set *xo.
 }
 
 // Post performs post processing of the template target.
-func (ts *Set) Post(ctx context.Context, mode string) {
+func (ts *Templates) Post(ctx context.Context, mode string) {
 	target, ok := ts.targets[ts.target]
 	switch {
 	case !ok:
@@ -345,13 +337,8 @@ func (ts *Set) Post(ctx context.Context, mode string) {
 }
 
 // Dump dumps generated files to disk.
-func (ts *Set) Dump(out string) {
-	var files []string
-	for file := range ts.files {
-		files = append(files, file)
-	}
-	sort.Strings(files)
-	for _, file := range files {
+func (ts *Templates) Dump(out string) {
+	for _, file := range slices.Sorted(maps.Keys(ts.files)) {
 		buf := ts.files[file].Buf.Bytes()
 		if err := os.WriteFile(filepath.Join(out, file), buf, 0o644); err != nil {
 			ts.files[file].Err = append(ts.files[file].Err, err)
@@ -360,17 +347,12 @@ func (ts *Set) Dump(out string) {
 }
 
 // Errors returns any collected errors.
-func (set *Set) Errors() []error {
-	var files []string
-	for file := range set.files {
-		files = append(files, file)
-	}
-	sort.Strings(files)
+func (set *Templates) Errors() []error {
 	var errors []error
 	if set.err != nil {
 		errors = append(errors, set.err)
 	}
-	for _, file := range files {
+	for _, file := range slices.Sorted(maps.Keys(set.files)) {
 		errors = append(errors, set.files[file].Err...)
 	}
 	return errors
@@ -389,7 +371,7 @@ type Target struct {
 // existing templates for implementation examples.
 //
 // Uses the template set's symbols, init func name, and declared tags.
-func (ts *Set) NewTemplate(ctx context.Context, target string, src fs.FS, unrestricted bool) (*Target, error) {
+func (ts *Templates) NewTemplate(ctx context.Context, target string, src fs.FS, unrestricted bool) (*Target, error) {
 	// build interpreter for custom funcs
 	i := interp.New(interp.Options{
 		GoPath:               ".",
@@ -400,22 +382,22 @@ func (ts *Set) NewTemplate(ctx context.Context, target string, src fs.FS, unrest
 	// add symbols
 	if ts.symbols != nil {
 		if err := i.Use(ts.symbols); err != nil {
-			return nil, fmt.Errorf("%s: could not add xo internal symbols to yaegi: %w", target, err)
+			return nil, fmt.Errorf("%s: could not add dbtpl internal symbols to yaegi: %w", target, err)
 		}
 	}
 	// import
-	if _, err := i.Eval(fmt.Sprintf("import (xotpl %q)", target)); err != nil {
+	if _, err := i.Eval(fmt.Sprintf("import (dbtpl %q)", target)); err != nil {
 		return nil, fmt.Errorf("%s: unable to import package: %w", target, err)
 	}
 	// eval init
-	v, err := i.Eval("xotpl." + ts.initfunc)
+	v, err := i.Eval("dbtpl." + ts.initfunc)
 	if err != nil {
 		return nil, fmt.Errorf("%s: unable to eval %q: %w", target, ts.initfunc, err)
 	}
 	// convert init
 	tplInit, ok := v.Interface().(func(context.Context, func(xo.TemplateType)) error)
 	if !ok {
-		return nil, fmt.Errorf("%s: %s has signature `%T` (must be `func(context.Context, func(github.com/xo/types.TemplateType)) error`)", target, ts.initfunc, v.Interface())
+		return nil, fmt.Errorf("%s: %s has signature `%T` (must be `func(context.Context, func(github.com/xo/dbtpl/types.TemplateType)) error`)", target, ts.initfunc, v.Interface())
 	}
 	// init
 	var typ xo.TemplateType
@@ -570,20 +552,9 @@ const DefaultInitFunc = "Init"
 
 // DefaultTags returns the default template tags.
 func DefaultTags() []string {
-	return []string{"xotpl"}
-}
-
-// removeMatching builds a new slice from v containing the strings not
-// contained in s.
-func removeMatching(v []string, s []string) []string {
-	var res []string
-	for _, z := range v {
-		if slices.Contains(s, z) {
-			continue
-		}
-		res = append(res, z)
+	return []string{
+		"dbtpl",
 	}
-	return res
 }
 
 // sourceFS handles source file mapping in a file system.

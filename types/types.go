@@ -264,12 +264,12 @@ type ContextKey string
 
 // Context keys.
 const (
-	DriverKey    ContextKey = "driver"
-	DbKey        ContextKey = "db"
-	SchemaKey    ContextKey = "schema"
-	OutKey       ContextKey = "out"
-	SingleKey    ContextKey = "single"
-	ArrayModeKey ContextKey = "array-mode"
+	DriverKey ContextKey = "driver"
+	DbKey     ContextKey = "db"
+	SchemaKey ContextKey = "schema"
+	OutKey    ContextKey = "out"
+	AppendKey ContextKey = "append"
+	SingleKey ContextKey = "single"
 )
 
 // DriverDbSchema returns the driver, database connection, and schema name from
@@ -285,6 +285,12 @@ func DriverDbSchema(ctx context.Context) (string, *sql.DB, string) {
 func Out(ctx context.Context) string {
 	s, _ := ctx.Value(OutKey).(string)
 	return s
+}
+
+// Append returns append option from the context.
+func Append(ctx context.Context) bool {
+	b, _ := ctx.Value(AppendKey).(bool)
+	return b
 }
 
 // Single returns the file to write to in single mode.
@@ -352,4 +358,9 @@ type FlagSet struct {
 	Type string
 	Name string
 	Flag Flag
+}
+
+// Key returns the context key name.
+func (g FlagSet) Key() string {
+	return g.Type + "-" + g.Name
 }

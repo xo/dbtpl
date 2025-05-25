@@ -1,4 +1,4 @@
-// Package cmd provides dbtpl command-line application logic.
+// ackage cmd provides dbtpl command-line application logic.
 package cmd
 
 import (
@@ -23,6 +23,7 @@ import (
 	"github.com/xo/dburl/passfile"
 	"github.com/xo/ox"
 	_ "github.com/xo/ox/glob"
+	"github.com/xo/ox/otx"
 	"github.com/yookoala/realpath"
 )
 
@@ -41,12 +42,6 @@ func Run(ctx context.Context, name string) {
 	// args
 	args := &Args{
 		TemplateTypes: ts.Targets(),
-		LoaderParams: LoaderParams{
-			Flags: make(map[xo.ContextKey]ox.Value),
-		},
-		TemplateParams: TemplateParams{
-			Flags: make(map[xo.ContextKey]ox.Value),
-		},
 	}
 	// build command
 	opts, err := rootCommand(name, ts, args)
@@ -79,8 +74,6 @@ type Args struct {
 type LoaderParams struct {
 	// Schema is the name of the database schema.
 	Schema string
-	// Flags are additional loader flags.
-	Flags map[xo.ContextKey]ox.Value
 }
 
 // TemplateParams are template parameters.
@@ -93,8 +86,6 @@ type TemplateParams struct {
 	Src string
 	// SrcChanged is the changed flag for src.
 	SrcChanged bool
-	// Flags are additional template flags.
-	Flags map[xo.ContextKey]ox.Value
 }
 
 // QueryParams are query parameters.
@@ -159,6 +150,8 @@ type SchemaParams struct {
 type OutParams struct {
 	// Out is the out path.
 	Out string
+	// Append toggles appending to existing file.
+	Append bool
 	// Single when true changes behavior so that output is to one file.
 	Single string
 	// Debug toggles direct writing of files to disk, skipping post processing.
@@ -166,9 +159,9 @@ type OutParams struct {
 }
 
 // newTemplateSet creates a new templates set.
-func newTemplateSet(ctx context.Context, dir, template string) (*templates.Set, error) {
+func newTemplateSet(ctx context.Context, dir, template string) (*templates.Templates, error) {
 	// build template ts
-	ts := templates.NewDefaultTemplateSet(ctx)
+	ts := templates.NewDefaults(ctx)
 	switch {
 	case dir == "" && template == "":
 		// show all default templates
@@ -197,7 +190,7 @@ func newTemplateSet(ctx context.Context, dir, template string) (*templates.Set, 
 }
 
 // rootCommand creates the root command.
-func rootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error) {
+func rootCommand(name string, ts *templates.Templates, args *Args) ([]ox.Option, error) {
 	// root
 	opts := []ox.Option{
 		ox.Usage(name, "the templated code generator for databases."),
@@ -210,7 +203,7 @@ func rootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error
 			),
 	}
 	// add sub commands
-	for _, f := range []func(*templates.Set, *Args) ([]ox.Option, error){
+	for _, f := range []func(*templates.Templates, *Args) ([]ox.Option, error){
 		queryCommand,
 		schemaCommand,
 		dumpCommand,
@@ -225,7 +218,7 @@ func rootCommand(name string, ts *templates.Set, args *Args) ([]ox.Option, error
 }
 
 // queryCommand builds the query command options.
-func queryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
+func queryCommand(ts *templates.Templates, args *Args) ([]ox.Option, error) {
 	// query flags
 	fs := ox.Flags()
 	fs = databaseFlags(fs, args)
@@ -300,7 +293,7 @@ func queryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 			ox.Short("U"),
 		)
 	var err error
-	if fs, err = templateFlags(fs, ts, true, args); err != nil {
+	if fs, err = addFlags(fs, ts, args, true, false); err != nil {
 		return nil, err
 	}
 	return []ox.Option{
@@ -314,7 +307,7 @@ func queryCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 }
 
 // schemaCommand builds the schema command options.
-func schemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
+func schemaCommand(ts *templates.Templates, args *Args) ([]ox.Option, error) {
 	// schema flags
 	fs := ox.Flags()
 	fs = databaseFlags(fs, args)
@@ -345,10 +338,7 @@ func schemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 			ox.Short("j"),
 		)
 	var err error
-	if fs, err = templateFlags(fs, ts, true, args); err != nil {
-		return nil, err
-	}
-	if fs, err = loaderFlags(fs); err != nil {
+	if fs, err = addFlags(fs, ts, args, true, true); err != nil {
 		return nil, err
 	}
 	return []ox.Option{
@@ -362,10 +352,8 @@ func schemaCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 }
 
 // dumpCommand builds the dump command options.
-func dumpCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
-	// dump flags
-	fs := ox.Flags()
-	fs, err := templateFlags(fs, ts, false, args)
+func dumpCommand(ts *templates.Templates, args *Args) ([]ox.Option, error) {
+	fs, err := addFlags(ox.Flags(), ts, args, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -405,79 +393,8 @@ func dumpCommand(ts *templates.Set, args *Args) ([]ox.Option, error) {
 	}, nil
 }
 
-// databaseFlags adds database flags to the flag set.
-func databaseFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
-	return fs.
-		String(
-			"schema", "database schema name",
-			ox.Bind(&args.LoaderParams.Schema),
-			ox.Short("s"),
-		)
-}
-
-// outFlags adds out flags to the flag set.
-func outFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
-	return fs.
-		String(
-			"out", "out path",
-			ox.Bind(&args.OutParams.Out),
-			ox.Short("o"),
-			ox.Default("models"),
-		).
-		Bool(
-			"debug", "debug generated code (writes generated code to disk without post processing)",
-			ox.Bind(&args.OutParams.Debug),
-			ox.Short("D"),
-		).
-		String(
-			"single", "output all contents to the specified file",
-			ox.Bind(&args.OutParams.Single),
-			ox.Short("S"),
-		)
-}
-
-// loaderFlags adds database loader flags to the flag set.
-func loaderFlags(fs *ox.FlagSet) (*ox.FlagSet, error) {
-	var err error
-	for _, set := range loader.Flags() {
-		if fs, err = addFlag(fs, set); err != nil {
-			return nil, err
-		}
-	}
-	return fs, nil
-}
-
-// templateFlags adds template flags to the flag set.
-func templateFlags(fs *ox.FlagSet, ts *templates.Set, extra bool, args *Args) (*ox.FlagSet, error) {
-	fs = fs.
-		Var(
-			"template", "template type",
-			ox.BindSet(&args.TemplateParams.Type, &args.TemplateParams.TypeChanged),
-			ox.Short("t"),
-			ox.Default(ts.Target()),
-			ox.Valid(args.TemplateTypes...),
-		)
-	if extra {
-		fs = fs.
-			String(
-				"src", "template source directory",
-				ox.BindSet(&args.TemplateParams.Src, &args.TemplateParams.SrcChanged),
-				ox.Short("d"),
-			)
-		var err error
-		for _, name := range ts.Targets() {
-			for _, set := range ts.Flags(name) {
-				if fs, err = addFlag(fs, set); err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	return fs, nil
-}
-
 // exec creates a exec func for the mode (schema/query).
-func exec(mode string, ts *templates.Set, args *Args) func(context.Context, []string) error {
+func exec(mode string, ts *templates.Templates, args *Args) func(context.Context, []string) error {
 	return func(ctx context.Context, cmdargs []string) error {
 		// check args
 		if err := checkArgs(mode, ts, args); err != nil {
@@ -486,7 +403,7 @@ func exec(mode string, ts *templates.Set, args *Args) func(context.Context, []st
 		// set template
 		ts.Use(args.TemplateParams.Type)
 		// build context
-		ctx = buildContext(ctx, args)
+		ctx = buildContext(ctx, mode, ts, args)
 		// enable verbose output for sql queries
 		if args.Verbose {
 			models.SetLogger(func(str string, v ...any) {
@@ -513,7 +430,7 @@ func exec(mode string, ts *templates.Set, args *Args) func(context.Context, []st
 
 // generate generates the dbtpl files with the provided templates, data, and
 // arguments.
-func generate(ctx context.Context, mode string, ts *templates.Set, set *xo.Set, args *Args) error {
+func generate(ctx context.Context, mode string, ts *templates.Templates, set *xo.Set, args *Args) error {
 	// create set context
 	ctx = ts.NewContext(ctx, mode)
 	if err := displayErrors(ts); err != nil {
@@ -544,8 +461,147 @@ func generate(ctx context.Context, mode string, ts *templates.Set, set *xo.Set, 
 	return nil
 }
 
+// databaseFlags adds database flags to the flag set.
+func databaseFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
+	return fs.
+		String(
+			"schema", "database schema name",
+			ox.Bind(&args.LoaderParams.Schema),
+			ox.Short("s"),
+		)
+}
+
+// outFlags adds out flags to the flag set.
+func outFlags(fs *ox.FlagSet, args *Args) *ox.FlagSet {
+	return fs.
+		String(
+			"out", "out path",
+			ox.Bind(&args.OutParams.Out),
+			ox.Short("o"),
+			ox.Default("models"),
+		).
+		Bool(
+			"append", "enable append mode (dependent on template support)",
+			ox.Bind(&args.OutParams.Append),
+			ox.Short("a"),
+		).
+		String(
+			"single", "output all contents to the specified file",
+			ox.Bind(&args.OutParams.Single),
+			ox.Short("S"),
+		).
+		Bool(
+			"debug", "debug generated code (writes generated code to disk without post processing)",
+			ox.Bind(&args.OutParams.Debug),
+			ox.Short("D"),
+		)
+}
+
+// addFlags adds template flags to the flag set.
+func addFlags(fs *ox.FlagSet, ts *templates.Templates, args *Args, extraFlags, loaderFlags bool) (*ox.FlagSet, error) {
+	fs = fs.
+		Var(
+			"template", "template type",
+			ox.BindSet(&args.TemplateParams.Type, &args.TemplateParams.TypeChanged),
+			ox.Short("t"),
+			ox.Default(ts.Target()),
+			ox.Valid(args.TemplateTypes...),
+		)
+	var flags []xo.FlagSet
+	if extraFlags {
+		fs = fs.
+			String(
+				"src", "template source directory",
+				ox.BindSet(&args.TemplateParams.Src, &args.TemplateParams.SrcChanged),
+				ox.Short("d"),
+			)
+		for _, name := range ts.Targets() {
+			flags = append(flags, ts.Flags(name)...)
+		}
+	}
+	if loaderFlags {
+		flags = append(flags, loader.Flags()...)
+	}
+	var err error
+	for _, g := range flags {
+		if fs, err = addFlag(fs, g); err != nil {
+			return nil, err
+		}
+	}
+	return fs, nil
+}
+
+// addFlag adds the flag to the cmd.
+func addFlag(fs *ox.FlagSet, g xo.FlagSet) (*ox.FlagSet, error) {
+	typ := ox.StringT
+	switch g.Flag.Type {
+	case "string":
+	case "bool":
+		typ = ox.BoolT
+	case "int":
+		typ = ox.IntT
+	case "[]string":
+		typ = ox.SliceT
+	case "glob":
+		typ = ox.GlobT
+	default:
+		return nil, fmt.Errorf("unknown flag type %s", g.Flag.Type)
+	}
+	opts := []ox.Option{typ, ox.Hidden(g.Flag.Hidden)}
+	if g.Flag.Short != "" {
+		opts = append(opts, ox.Short(g.Flag.Short))
+	}
+	switch typ {
+	case ox.BoolT:
+		def, noArgDef := false, true
+		if g.Flag.Default != nil {
+			def, _ = g.Flag.Default.(bool)
+			noArgDef = !def
+		}
+		opts = append(opts, ox.Default(def), ox.NoArg(true, noArgDef))
+	case ox.IntT:
+		def := 0
+		if g.Flag.Default != nil {
+			def, _ = g.Flag.Default.(int)
+		}
+		opts = append(opts, ox.Default(def))
+	case ox.SliceT:
+		def := ""
+		if g.Flag.Default != nil {
+			switch x := g.Flag.Default.(type) {
+			case string:
+				def = x
+			case []string:
+				def = strings.Join(x, ",")
+			}
+		}
+		opts = append(opts, ox.Default(def))
+	default:
+		def := ""
+		if g.Flag.Default != nil {
+			def, _ = g.Flag.Default.(string)
+		}
+		if g.Flag.Enums != nil && def == "" {
+			def = g.Flag.Enums[0]
+		}
+		opts = append(opts, ox.Default(def))
+	}
+	if len(g.Flag.Aliases) != 0 {
+		opts = append(opts, ox.Aliases(g.Flag.Aliases...))
+	}
+	desc := g.Flag.Desc
+	if g.Flag.Enums != nil {
+		desc += " <" + strings.Join(g.Flag.Enums, "|") + ">"
+		opts = append(opts, ox.Valid(g.Flag.Enums...))
+	}
+	return fs.Var(
+		g.Key(), desc,
+		opts...,
+	), nil
+}
+
 // checkArgs sets up and checks args.
-func checkArgs(mode string, ts *templates.Set, args *Args) error {
+func checkArgs(mode string, ts *templates.Templates, args *Args) error {
 	// check template is available for the mode
 	if err := ts.For(mode); err != nil {
 		return err
@@ -576,18 +632,23 @@ func checkArgs(mode string, ts *templates.Set, args *Args) error {
 }
 
 // buildContext builds a context for the mode and template.
-func buildContext(ctx context.Context, args *Args) context.Context {
-	// add loader flags
-	for k, v := range args.LoaderParams.Flags {
-		ctx = context.WithValue(ctx, k, v.Val())
-	}
-	// add template flags
-	for k, v := range args.TemplateParams.Flags {
-		ctx = context.WithValue(ctx, k, v.Val())
-	}
-	// add out
+func buildContext(ctx context.Context, mode string, ts *templates.Templates, args *Args) context.Context {
+	// out params
 	ctx = context.WithValue(ctx, xo.OutKey, args.OutParams.Out)
+	ctx = context.WithValue(ctx, xo.AppendKey, args.OutParams.Append)
 	ctx = context.WithValue(ctx, xo.SingleKey, args.OutParams.Single)
+	// add flags
+	flags := ts.Flags(args.TemplateParams.Type)
+	if mode == "schema" {
+		flags = append(flags, loader.Flags()...)
+	}
+	for _, g := range flags {
+		v, ok := otx.Any(ctx, g.Key())
+		if !ok {
+			panic(fmt.Sprintf("param %q was not defined in context vars", g.Key()))
+		}
+		ctx = context.WithValue(ctx, g.Flag.ContextKey, v.Val())
+	}
 	return ctx
 }
 
@@ -604,13 +665,12 @@ func open(ctx context.Context, urlstr, schema string) (context.Context, error) {
 		return nil, err
 	}
 	// open database
-	db, err := passfile.OpenURL(u, v.HomeDir, "xopass")
+	db, err := passfile.OpenURL(u, v.HomeDir, "dbtplpass")
 	if err != nil {
 		return nil, err
 	}
-	// add driver to context
+	// add driver, db, schema to context
 	ctx = context.WithValue(ctx, xo.DriverKey, u.Driver)
-	// add db to context
 	ctx = context.WithValue(ctx, xo.DbKey, db)
 	// determine schema
 	if schema == "" {
@@ -618,13 +678,12 @@ func open(ctx context.Context, urlstr, schema string) (context.Context, error) {
 			return nil, err
 		}
 	}
-	// add schema to context
 	ctx = context.WithValue(ctx, xo.SchemaKey, schema)
 	return ctx, nil
 }
 
 // load loads a set of queries or schemas.
-func load(ctx context.Context, mode string, _ *templates.Set, args *Args) (*xo.Set, error) {
+func load(ctx context.Context, mode string, _ *templates.Templates, args *Args) (*xo.Set, error) {
 	f := loadSchema
 	if mode == "query" {
 		f = loadQuery
@@ -634,33 +693,6 @@ func load(ctx context.Context, mode string, _ *templates.Set, args *Args) (*xo.S
 		return nil, err
 	}
 	return set, nil
-}
-
-// displayErrors displays collected errors from the set.
-func displayErrors(ts *templates.Set) error {
-	if errors := ts.Errors(); len(errors) != 0 {
-		for _, err := range errors {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		}
-		return fmt.Errorf("%d errors encountered", len(errors))
-	}
-	return nil
-}
-
-// checkDir checks that dir exists.
-func checkDir(dir string) error {
-	if !isDir(dir) {
-		return fmt.Errorf("%s must exist and must be a directory", dir)
-	}
-	return nil
-}
-
-// isDir determines if dir is a directory.
-func isDir(dir string) bool {
-	if fi, err := os.Stat(dir); err == nil {
-		return fi.IsDir()
-	}
-	return false
 }
 
 // parseArg peeks at a flag in args.
@@ -683,45 +715,29 @@ func parseArg(full, short string, args []string) (s string) {
 	return ""
 }
 
-// addFlag adds the flag to the cmd.
-func addFlag(fs *ox.FlagSet, set xo.FlagSet) (*ox.FlagSet, error) {
-	typ := ox.StringT
-	switch set.Flag.Type {
-	case "string":
-	case "bool":
-		typ = ox.BoolT
-	case "int":
-		typ = ox.IntT
-	case "[]string":
-		typ = ox.SliceT
-	case "glob":
-		typ = ox.GlobT
-	default:
-		return nil, fmt.Errorf("unknown flag type %s", set.Flag.Type)
-	}
-	opts := []ox.Option{
-		typ,
-		ox.Hidden(set.Flag.Hidden),
-	}
-	if set.Flag.Short != "" {
-		opts = append(opts, ox.Short(set.Flag.Short))
-	}
-	if set.Flag.Default != nil {
-		if s, ok := set.Flag.Default.(string); ok && s != "" {
-			opts = append(opts, ox.Default(set.Flag.Default))
+// displayErrors displays collected errors from the set.
+func displayErrors(ts *templates.Templates) error {
+	if errors := ts.Errors(); len(errors) != 0 {
+		for _, err := range errors {
+			fmt.Fprintln(os.Stderr, "error:", err)
 		}
+		return fmt.Errorf("%d errors encountered", len(errors))
 	}
-	if len(set.Flag.Aliases) != 0 {
-		opts = append(opts, ox.Aliases(set.Flag.Aliases...))
+	return nil
+}
+
+// checkDir checks that dir exists.
+func checkDir(dir string) error {
+	if !isDir(dir) {
+		return fmt.Errorf("%s must exist and must be a directory", dir)
 	}
-	desc := set.Flag.Desc
-	if set.Flag.Enums != nil {
-		desc += " <" + strings.Join(set.Flag.Enums, "|") + ">"
-		opts = append(opts, ox.Valid(set.Flag.Enums...))
+	return nil
+}
+
+// isDir determines if dir is a directory.
+func isDir(dir string) bool {
+	if fi, err := os.Stat(dir); err == nil {
+		return fi.IsDir()
 	}
-	return fs.
-		Var(
-			set.Type+"-"+set.Name, desc,
-			opts...,
-		), nil
+	return false
 }

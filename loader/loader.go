@@ -6,8 +6,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/kenshaw/snaker"
@@ -28,13 +29,8 @@ func Register(typ string, loader Loader) {
 // These should be added to the invocation context for any call to a loader
 // func.
 func Flags() []xo.FlagSet {
-	var types []string
-	for typ := range loaders {
-		types = append(types, typ)
-	}
-	sort.Strings(types)
 	var flags []xo.FlagSet
-	for _, typ := range types {
+	for _, typ := range slices.Sorted(maps.Keys(loaders)) {
 		l := loaders[typ]
 		if l.Flags == nil {
 			continue

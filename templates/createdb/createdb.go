@@ -30,13 +30,6 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 		Modes: []string{"schema"},
 		Flags: []xo.Flag{
 			{
-				ContextKey: AppendKey,
-				Type:       "bool",
-				Desc:       "enable append mode for createdb",
-				Short:      "a",
-				Aliases:    []string{"append"},
-			},
-			{
 				ContextKey: FmtKey,
 				Type:       "string",
 				Desc:       "fmt command",
@@ -46,7 +39,7 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: FmtOptsKey,
 				Type:       "[]string",
 				Desc:       "fmt options",
-				Default:    strings.Join(fmtOpts, ","),
+				Default:    fmtOpts,
 			},
 			{
 				ContextKey: ConstraintKey,
@@ -57,7 +50,6 @@ func Init(ctx context.Context, f func(xo.TemplateType)) error {
 				ContextKey: EscKey,
 				Type:       "string",
 				Desc:       "escape mode",
-				Default:    "none",
 				Enums:      []string{"none", "types", "all"},
 			},
 			{
@@ -587,7 +579,6 @@ func comma(i int, v any) string {
 
 // Context keys.
 var (
-	AppendKey      xo.ContextKey = "append"
 	FmtKey         xo.ContextKey = "fmt"
 	FmtOptsKey     xo.ContextKey = "fmt-opts"
 	ConstraintKey  xo.ContextKey = "constraint"
@@ -598,7 +589,7 @@ var (
 
 // Append returns append from the context.
 func Append(ctx context.Context) bool {
-	b, _ := ctx.Value(AppendKey).(bool)
+	b, _ := ctx.Value(xo.AppendKey).(bool)
 	return b
 }
 

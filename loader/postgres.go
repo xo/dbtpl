@@ -40,7 +40,6 @@ func PostgresFlags() []xo.Flag {
 			ContextKey: oidsKey,
 			Type:       "bool",
 			Desc:       "enable postgres OIDs",
-			Default:    "false",
 		},
 	}
 }
