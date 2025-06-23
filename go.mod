@@ -4,20 +4,20 @@ go 1.24.3
 
 require (
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/go-sql-driver/mysql v1.9.2
-	github.com/goccy/go-yaml v1.17.1
+	github.com/go-sql-driver/mysql v1.9.3
+	github.com/goccy/go-yaml v1.18.0
 	github.com/kenshaw/glob v0.0.0-20250507233341-2ccc24e5a073
 	github.com/kenshaw/inflector v0.3.0
 	github.com/kenshaw/snaker v0.4.3
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.28
-	github.com/microsoft/go-mssqldb v1.8.1
-	github.com/sijms/go-ora/v2 v2.8.24
+	github.com/microsoft/go-mssqldb v1.8.2
+	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/traefik/yaegi v0.16.1
 	github.com/xo/dburl v0.23.8
-	github.com/xo/ox v0.0.0-20250525220337-fc21a8d340e6
+	github.com/xo/ox v0.0.0-20250529002803-30865a99877b
 	github.com/yookoala/realpath v1.0.0
-	golang.org/x/tools v0.33.0
+	golang.org/x/tools v0.34.0
 	mvdan.cc/gofumpt v0.8.0
 )
 
@@ -34,9 +34,9 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/spf13/cast v1.8.0 // indirect
-	golang.org/x/crypto v0.38.0 // indirect
-	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/sync v0.14.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
+	github.com/spf13/cast v1.9.2 // indirect
+	golang.org/x/crypto v0.39.0 // indirect
+	golang.org/x/mod v0.25.0 // indirect
+	golang.org/x/sync v0.15.0 // indirect
+	golang.org/x/text v0.26.0 // indirect
 )
