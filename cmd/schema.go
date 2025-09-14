@@ -293,24 +293,31 @@ func loadTableIndexes(ctx context.Context, args *Args, table *xo.Table) error {
 	sort.Slice(indexes, func(i, j int) bool {
 		return indexes[i].IndexName < indexes[j].IndexName
 	})
-	// process indexes
+	// process indexes - first collect all indexes, then assign unique function names
 	var priIxLoaded bool
+	var tableIndexes []xo.Index
 	for _, index := range indexes {
 		// save whether or not the primary key index was processed
 		priIxLoaded = priIxLoaded || index.IsPrimary
 		// create index template
-		index := &xo.Index{
+		idx := xo.Index{
 			Name:      index.IndexName,
 			IsPrimary: index.IsPrimary,
 			IsUnique:  index.IsUnique,
 		}
 		// load index columns
-		if err := loadIndexColumns(ctx, args, table, index); err != nil {
+		if err := loadIndexColumns(ctx, args, table, &idx); err != nil {
 			return err
 		}
-		// load index func name
-		index.Func = indexFuncName(*index, table.Name, args.SchemaParams.UseIndexNames)
-		table.Indexes = append(table.Indexes, *index)
+		tableIndexes = append(tableIndexes, idx)
+	}
+
+	// assign unique function names to avoid conflicts
+	assignUniqueIndexFuncNames(tableIndexes, table.Name, args.SchemaParams.UseIndexNames)
+
+	// add indexes to table
+	for _, index := range tableIndexes {
+		table.Indexes = append(table.Indexes, index)
 	}
 	pkeys := table.PrimaryKeys
 	// if no primary key index loaded, but a primary key column was defined in
@@ -330,8 +337,12 @@ func loadTableIndexes(ctx context.Context, args *Args, table *xo.Table) error {
 			IsUnique:  true,
 			IsPrimary: true,
 		}
-		index.Func = indexFuncName(index, table.Name, args.SchemaParams.UseIndexNames)
+		// Add this primary key index to our existing indexes and assign unique names
 		table.Indexes = append(table.Indexes, index)
+		// Re-assign all function names to handle any conflicts
+		allIndexes := table.Indexes
+		assignUniqueIndexFuncNames(allIndexes, table.Name, args.SchemaParams.UseIndexNames)
+		table.Indexes = allIndexes
 	} else if driver == "oracle" && len(table.PrimaryKeys) != 0 {
 	loop:
 		for i, index := range table.Indexes {
@@ -559,15 +570,42 @@ func indexFuncName(index xo.Index, tableName string, useIndexNames bool) string 
 	for _, field := range index.Fields {
 		names = append(names, field.Name)
 	}
-	baseName := strings.Join(names, "_")
+	return strings.Join(names, "_")
+}
 
-	// Add suffix to differentiate between different types of indexes on the same columns
-	if index.IsPrimary {
-		return baseName + "_pk"
-	} else if index.IsUnique {
-		return baseName + "_unique"
+// assignUniqueIndexFuncNames assigns unique function names to indexes, adding suffixes only when conflicts exist
+func assignUniqueIndexFuncNames(indexes []xo.Index, tableName string, useIndexNames bool) {
+	funcNameCount := make(map[string][]int) // map function name to index positions
+
+	// First pass: generate base function names and detect conflicts
+	for i := range indexes {
+		baseName := indexFuncName(indexes[i], tableName, useIndexNames)
+		indexes[i].Func = baseName
+		funcNameCount[baseName] = append(funcNameCount[baseName], i)
 	}
-	return baseName
+
+	// Second pass: resolve conflicts by adding suffixes
+	for funcName, indexPositions := range funcNameCount {
+		if len(indexPositions) > 1 {
+			// Conflict detected - add suffixes to distinguish
+			for _, pos := range indexPositions {
+				index := &indexes[pos]
+				if index.IsPrimary {
+					index.Func = funcName + "_pk"
+				} else if index.IsUnique {
+					index.Func = funcName + "_unique"
+				} else {
+					// For regular indexes, use index name if available
+					name := indexName(index.Name, tableName)
+					if name != "" {
+						index.Func = funcName + "_" + name
+					} else {
+						index.Func = funcName + "_idx"
+					}
+				}
+			}
+		}
+	}
 }
 
 // indexName determines the name for an index.

@@ -38,7 +38,7 @@ func TestIndexFuncNameDuplicates(t *testing.T) {
 				},
 			},
 			expectDuplicates: false, // Should now be fixed
-			expectedFuncs: []string{"xo_test_by_id_pk", "xo_test_by_id_unique"}, // Now unique
+			expectedFuncs: []string{"xo_test_by_id_pk", "xo_test_by_id_unique"}, // Only conflicts get suffixes
 		},
 		{
 			name:      "no duplicates with different columns",
@@ -63,7 +63,7 @@ func TestIndexFuncNameDuplicates(t *testing.T) {
 				},
 			},
 			expectDuplicates: false,
-			expectedFuncs: []string{"user_by_id_pk", "user_by_email_unique"},
+			expectedFuncs: []string{"user_by_id", "user_by_email"}, // No conflicts, so no suffixes added
 		},
 		{
 			name:      "duplicates with composite indexes on same columns",
@@ -96,14 +96,17 @@ func TestIndexFuncNameDuplicates(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			funcNames := make([]string, 0, len(test.indexes))
-			duplicateMap := make(map[string]int)
+			// Use the new conflict-aware function assignment
+			indexes := make([]xo.Index, len(test.indexes))
+			copy(indexes, test.indexes)
 
-			// Generate function names for each index
-			for _, index := range test.indexes {
-				funcName := indexFuncName(index, test.tableName, test.useIndexNames)
-				funcNames = append(funcNames, funcName)
-				duplicateMap[funcName]++
+			assignUniqueIndexFuncNames(indexes, test.tableName, test.useIndexNames)
+
+			funcNames := make([]string, len(indexes))
+			duplicateMap := make(map[string]int)
+			for i, index := range indexes {
+				funcNames[i] = index.Func
+				duplicateMap[index.Func]++
 			}
 
 			// Check for expected function names
@@ -161,7 +164,7 @@ func TestIndexFuncNameGeneration(t *testing.T) {
 					{Name: "email"},
 				},
 			},
-			expected: "user_by_email_unique",
+			expected: "user_by_email", // Backwards compatible - no suffix unless conflict
 		},
 		{
 			name:      "non-unique index",
@@ -198,6 +201,101 @@ func TestIndexFuncNameGeneration(t *testing.T) {
 			if result != test.expected {
 				t.Errorf("Expected %q, got %q", test.expected, result)
 			}
+		})
+	}
+}
+
+// TestBackwardsCompatibility ensures that function names remain the same when no conflicts exist
+func TestBackwardsCompatibility(t *testing.T) {
+	tests := []struct {
+		name          string
+		indexes       []xo.Index
+		tableName     string
+		expectedFuncs []string
+	}{
+		{
+			name:      "single unique index - no suffix added",
+			tableName: "users",
+			indexes: []xo.Index{
+				{
+					Name:     "users_email_key",
+					IsUnique: true,
+					Fields: []xo.Field{
+						{Name: "email"},
+					},
+				},
+			},
+			expectedFuncs: []string{"user_by_email"}, // No suffix - backwards compatible
+		},
+		{
+			name:      "single primary key - no suffix added",
+			tableName: "posts",
+			indexes: []xo.Index{
+				{
+					Name:      "posts_pkey",
+					IsUnique:  true,
+					IsPrimary: true,
+					Fields: []xo.Field{
+						{Name: "id"},
+					},
+				},
+			},
+			expectedFuncs: []string{"post_by_id"}, // No suffix - backwards compatible
+		},
+		{
+			name:      "different columns - no suffixes added",
+			tableName: "articles",
+			indexes: []xo.Index{
+				{
+					Name:      "articles_pkey",
+					IsUnique:  true,
+					IsPrimary: true,
+					Fields: []xo.Field{
+						{Name: "id"},
+					},
+				},
+				{
+					Name:     "articles_slug_key",
+					IsUnique: true,
+					Fields: []xo.Field{
+						{Name: "slug"},
+					},
+				},
+				{
+					Name:     "articles_author_idx",
+					IsUnique: false,
+					Fields: []xo.Field{
+						{Name: "author_id"},
+					},
+				},
+			},
+			expectedFuncs: []string{"article_by_id", "article_by_slug", "articles_by_author_id"}, // No suffixes
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			indexes := make([]xo.Index, len(test.indexes))
+			copy(indexes, test.indexes)
+
+			assignUniqueIndexFuncNames(indexes, test.tableName, false)
+
+			funcNames := make([]string, len(indexes))
+			for i, index := range indexes {
+				funcNames[i] = index.Func
+			}
+
+			if len(funcNames) != len(test.expectedFuncs) {
+				t.Errorf("Expected %d function names, got %d", len(test.expectedFuncs), len(funcNames))
+			}
+
+			for i, expected := range test.expectedFuncs {
+				if i < len(funcNames) && funcNames[i] != expected {
+					t.Errorf("Expected function name %d to be %q, got %q", i, expected, funcNames[i])
+				}
+			}
+
+			t.Logf("Generated function names: %v", funcNames)
 		})
 	}
 }
