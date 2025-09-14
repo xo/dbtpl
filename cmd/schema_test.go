@@ -37,8 +37,8 @@ func TestIndexFuncNameDuplicates(t *testing.T) {
 					},
 				},
 			},
-			expectDuplicates: true,
-			expectedFuncs: []string{"xo_test_by_id", "xo_test_by_id"}, // Same function name twice
+			expectDuplicates: false, // Should now be fixed
+			expectedFuncs: []string{"xo_test_by_id_pk", "xo_test_by_id_unique"}, // Now unique
 		},
 		{
 			name:      "no duplicates with different columns",
@@ -63,7 +63,7 @@ func TestIndexFuncNameDuplicates(t *testing.T) {
 				},
 			},
 			expectDuplicates: false,
-			expectedFuncs: []string{"user_by_id", "user_by_email"},
+			expectedFuncs: []string{"user_by_id_pk", "user_by_email_unique"},
 		},
 		{
 			name:      "duplicates with composite indexes on same columns",
@@ -89,8 +89,8 @@ func TestIndexFuncNameDuplicates(t *testing.T) {
 					},
 				},
 			},
-			expectDuplicates: true,
-			expectedFuncs: []string{"user_role_by_user_id_role_id", "user_role_by_user_id_role_id"},
+			expectDuplicates: false, // Should now be fixed
+			expectedFuncs: []string{"user_role_by_user_id_role_id_pk", "user_role_by_user_id_role_id_unique"},
 		},
 	}
 
@@ -127,12 +127,9 @@ func TestIndexFuncNameDuplicates(t *testing.T) {
 				}
 			}
 
-			if test.expectDuplicates && !hasDuplicates {
-				t.Errorf("Expected duplicates but found none. Function names: %v", funcNames)
-			}
-
-			if !test.expectDuplicates && hasDuplicates {
-				t.Errorf("Expected no duplicates but found some. Function names: %v, duplicates: %v", funcNames, duplicateMap)
+			// This test should FAIL when duplicates are detected to expose the bug
+			if hasDuplicates {
+				t.Fatalf("DUPLICATE FUNCTION NAMES DETECTED - this exposes the bug! Function names: %v, duplicates: %v", funcNames, duplicateMap)
 			}
 
 			// Log for debugging
@@ -164,7 +161,7 @@ func TestIndexFuncNameGeneration(t *testing.T) {
 					{Name: "email"},
 				},
 			},
-			expected: "user_by_email",
+			expected: "user_by_email_unique",
 		},
 		{
 			name:      "non-unique index",

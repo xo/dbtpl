@@ -559,7 +559,15 @@ func indexFuncName(index xo.Index, tableName string, useIndexNames bool) string 
 	for _, field := range index.Fields {
 		names = append(names, field.Name)
 	}
-	return strings.Join(names, "_")
+	baseName := strings.Join(names, "_")
+
+	// Add suffix to differentiate between different types of indexes on the same columns
+	if index.IsPrimary {
+		return baseName + "_pk"
+	} else if index.IsUnique {
+		return baseName + "_unique"
+	}
+	return baseName
 }
 
 // indexName determines the name for an index.
