@@ -133,6 +133,7 @@ options:
                          use specified type names instead of deriving them from the table names. --type-names "table_1=FooType table_2=BarType"
   --extra TYPES
                          generate *Extra fields for all given types
+  --atomic-pointer       wrap *sql.DB in sync/atomic.Pointer
   --fk-mode FK-MODE, -k FK-MODE
                          sets mode for naming foreign key funcs in generated Go code [values: <smart|parent|field|key>] [default: smart]
   --use-index-names, -j

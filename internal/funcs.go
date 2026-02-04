@@ -16,6 +16,7 @@ import (
 func (a *ArgType) NewTemplateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"add":                func(a, b int) int { return a + b },
+		"AtomicPointer":      func() bool { return a.AtomicPointer },
 		"pluralize":          inflector.Pluralize,
 		"unexport":           a.unexport,
 		"hasprefix":          strings.HasPrefix,

@@ -54,6 +54,8 @@ type ArgType struct {
 
 	Extra []string `arg:"--extra,help:generate *Extra fields for all given types"`
 
+	AtomicPointer bool `arg:"--atomic-pointer,help:wrap *sql.DB in sync/atomic.Pointer"`
+
 	// ForeignKeyMode is the foreign key mode for generating foreign key names.
 	ForeignKeyMode *FkMode `arg:"--fk-mode,-k,help:sets mode for naming foreign key funcs in generated Go code [values: <smart|parent|field|key>]"`
 
