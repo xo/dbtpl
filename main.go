@@ -16,11 +16,11 @@ import (
 
 	"github.com/alexflint/go-arg"
 
+	"github.com/classmarkets/xo/internal"
+	"github.com/classmarkets/xo/models"
 	"github.com/xo/dburl"
-	"github.com/xo/xo/internal"
-	"github.com/xo/xo/models"
 
-	_ "github.com/xo/xo/loaders"
+	_ "github.com/classmarkets/xo/loaders"
 	_ "github.com/xo/xoutil"
 )
 
