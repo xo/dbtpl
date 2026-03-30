@@ -346,6 +346,9 @@ func fileNames(ctx context.Context, mode string, set *xo.Set) (map[string]bool, 
 					addFile("sp_" + goName)
 				}
 			}
+			for _, c := range schema.Composites {
+				addFile(camelExport(c.Name))
+			}
 			for _, t := range schema.Tables {
 				addFile(camelExport(singularize(t.Name)))
 			}
@@ -513,6 +516,19 @@ func emitSchema(ctx context.Context, schema xo.Schema, emit func(xo.Template)) e
 			Data:     procs,
 		})
 	}
+	// emit composites
+	for _, c := range schema.Composites {
+		comp, err := convertComposite(ctx, c)
+		if err != nil {
+			return err
+		}
+		emit(xo.Template{
+			Partial:  "composite",
+			Dest:     strings.ToLower(comp.GoName) + ext,
+			SortName: comp.GoName,
+			Data:     comp,
+		})
+	}
 	// emit tables
 	for _, t := range append(schema.Tables, schema.Views...) {
 		table, err := convertTable(ctx, t)
@@ -653,6 +669,31 @@ func convertTable(ctx context.Context, t xo.Table) (Table, error) {
 	}, nil
 }
 
+// convertComposite converts a xo.Composite to a Composite.
+func convertComposite(ctx context.Context, c xo.Composite) (Composite, error) {
+	var fields []Field
+	for _, f := range c.Fields {
+		field, err := convertField(ctx, camelExport, f)
+		if err != nil {
+			return Composite{}, err
+		}
+		fields = append(fields, field)
+	}
+	comp := Composite{
+		GoName:  camelExport(c.Name),
+		SQLName: c.Name,
+		Fields:  fields,
+		Comment: c.Comment,
+	}
+
+	if knownTypes := KnownTypes(ctx); knownTypes != nil {
+		knownTypes[comp.GoName] = true
+		knownTypes[comp.GoName+"Array"] = true
+	}
+
+	return comp, nil
+}
+
 func convertIndex(ctx context.Context, t Table, i xo.Index) (Index, error) {
 	var fields []Field
 	for _, z := range i.Fields {
@@ -784,6 +825,7 @@ const ext = ".dbtpl.go"
 // Funcs is a set of template funcs.
 type Funcs struct {
 	driver     string
+	arrayMode  string
 	schema     string
 	nth        func(int) string
 	first      bool
@@ -824,13 +866,22 @@ func NewFuncs(ctx context.Context) (template.FuncMap, error) {
 		inject = string(buf)
 	}
 	driver, _, schema := xo.DriverDbSchema(ctx)
+	arrayMode := ArrayMode(ctx)
+	if arrayMode == "" {
+		arrayMode = "pq"
+	}
 	nth, err := loader.NthParam(ctx)
 	if err != nil {
 		return nil, err
 	}
+	imports := Imports(ctx)
+	if driver == "postgres" && (arrayMode == "pq" || arrayMode == "stdlib" || arrayMode == "") && !slices.Contains(imports, "github.com/lib/pq") {
+		imports = append(imports, "github.com/lib/pq")
+	}
 	funcs := &Funcs{
 		first:      first,
 		driver:     driver,
+		arrayMode:  arrayMode,
 		schema:     schema,
 		nth:        nth,
 		pkg:        Pkg(ctx),
@@ -892,6 +943,7 @@ func (f *Funcs) FuncMap() template.FuncMap {
 		"type":         f.typefn,
 		"field":        f.field,
 		"short":        f.short,
+		"inc":          f.inc,
 		// sqlstr funcs
 		"querystr": f.querystr,
 		"sqlstr":   f.sqlstr,
@@ -1323,15 +1375,15 @@ func (f *Funcs) namesfn(all bool, prefix string, z ...any) string {
 				if !all && p.Interpolate {
 					continue
 				}
-				names = append(names, prefix+p.Name)
+				names = append(names, f.wrapArray(prefix+checkName(p.Name), p.Type))
 			}
 		case Table:
 			for _, p := range x.Fields {
-				names = append(names, prefix+checkName(p.GoName))
+				names = append(names, f.wrapArray(prefix+checkName(p.GoName), p.Type))
 			}
 		case []Field:
 			for _, p := range x {
-				names = append(names, prefix+checkName(p.GoName))
+				names = append(names, f.wrapArray(prefix+checkName(p.GoName), p.Type))
 			}
 		case Proc:
 			if params := f.params(x.Params, false); params != "" {
@@ -1344,6 +1396,22 @@ func (f *Funcs) namesfn(all bool, prefix string, z ...any) string {
 		}
 	}
 	return strings.Join(names, ", ")
+}
+
+func (f *Funcs) wrapArray(expr, typ string) string {
+	if f.driver != "postgres" {
+		return expr
+	}
+
+	if strings.HasPrefix(typ, "pq.") || strings.HasSuffix(typ, "Array") {
+		return expr
+	}
+
+	if strings.HasPrefix(typ, "[]") {
+		return "pq.Array(" + expr + ")"
+	}
+
+	return expr
 }
 
 // names generates a list of names (excluding certain ones such as interpolated
@@ -1960,6 +2028,10 @@ func (f *Funcs) short(v any) string {
 	return name
 }
 
+func (f *Funcs) inc(i int) int {
+	return i + 1
+}
+
 // colname returns the ColumnName of a field escaped if needed.
 func (f *Funcs) colname(z Field) string {
 	if f.escColumn {
@@ -2139,7 +2211,7 @@ func Uint32(ctx context.Context) string {
 
 // ArrayMode returns array-mode from the context.
 func ArrayMode(ctx context.Context) string {
-	s, _ := ctx.Value(ArrayMode).(string)
+	s, _ := ctx.Value(ArrayModeKey).(string)
 	return s
 }
 
@@ -2282,6 +2354,14 @@ type Proc struct {
 	Void           bool
 	Overloaded     bool
 	Comment        string
+}
+
+// Composite is a composite type template.
+type Composite struct {
+	GoName  string
+	SQLName string
+	Fields  []Field
+	Comment string
 }
 
 // Table is a type (ie, table/view/custom query) template.

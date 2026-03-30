@@ -30,6 +30,9 @@ func loadSchema(ctx context.Context, set *xo.Set, args *Args) error {
 	if schema.Procs, err = loadProcs(ctx, args); err != nil {
 		return err
 	}
+	if schema.Composites, err = loadComposites(ctx, args); err != nil {
+		return err
+	}
 	if schema.Tables, err = loadTables(ctx, args, "table"); err != nil {
 		return err
 	}
@@ -78,6 +81,35 @@ func loadEnums(ctx context.Context, args *Args) ([]xo.Enum, error) {
 	return enums, nil
 }
 
+// loadComposites loads composite types.
+func loadComposites(ctx context.Context, args *Args) ([]xo.Composite, error) {
+	comps, err := loader.Composites(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(comps, func(i, j int) bool {
+		return comps[i].TypeName < comps[j].TypeName
+	})
+	var res []xo.Composite
+	for _, comp := range comps {
+		if !validType(args, false, comp.TypeName) {
+			continue
+		}
+		c := xo.Composite{
+			Name:    comp.TypeName,
+			Comment: strings.TrimSpace(comp.Comment.String),
+		}
+		if err := loadCompositeAttributes(ctx, args, &c); err != nil {
+			return nil, err
+		}
+		if c.Comment != "" {
+			c.Comment = strings.ReplaceAll(c.Comment, "\n", " ")
+		}
+		res = append(res, c)
+	}
+	return res, nil
+}
+
 // loadEnumValues loads enum values.
 func loadEnumValues(ctx context.Context, _ *Args, enum *xo.Enum) error {
 	// load enum values
@@ -90,6 +122,29 @@ func loadEnumValues(ctx context.Context, _ *Args, enum *xo.Enum) error {
 		enum.Values = append(enum.Values, xo.Field{
 			Name:       val.EnumValue,
 			ConstValue: &val.ConstValue,
+		})
+	}
+	return nil
+}
+
+// loadCompositeAttributes loads attributes for a composite type.
+func loadCompositeAttributes(ctx context.Context, _ *Args, composite *xo.Composite) error {
+	driver, _, _ := xo.DriverDbSchema(ctx)
+	attrs, err := loader.CompositeAttributes(ctx, composite.Name)
+	if err != nil {
+		return err
+	}
+	for _, attr := range attrs {
+		d, err := xo.ParseType(attr.DataType, driver)
+		if err != nil {
+			return err
+		}
+		d.Nullable = !attr.NotNull
+		composite.Fields = append(composite.Fields, xo.Field{
+			Name:    attr.Attribute,
+			Type:    d,
+			Default: attr.DefaultValue.String,
+			Comment: strings.TrimSpace(attr.Comment.String),
 		})
 	}
 	return nil

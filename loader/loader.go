@@ -56,6 +56,8 @@ type Loader struct {
 	EnumValues       func(context.Context, models.DB, string, string) ([]*models.EnumValue, error)
 	Procs            func(context.Context, models.DB, string) ([]*models.Proc, error)
 	ProcParams       func(context.Context, models.DB, string, string) ([]*models.ProcParam, error)
+	Composites       func(context.Context, models.DB, string) ([]*models.Composite, error)
+	CompositeAttrs   func(context.Context, models.DB, string, string) ([]*models.CompositeAttribute, error)
 	Tables           func(context.Context, models.DB, string, string) ([]*models.Table, error)
 	TableColumns     func(context.Context, models.DB, string, string) ([]*models.Column, error)
 	TableSequences   func(context.Context, models.DB, string, string) ([]*models.Sequence, error)
@@ -124,6 +126,18 @@ func Enums(ctx context.Context) ([]*models.Enum, error) {
 	return nil, nil
 }
 
+// Composites returns the database composites.
+func Composites(ctx context.Context) ([]*models.Composite, error) {
+	db, l, schema, err := get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if l.Composites != nil {
+		return l.Composites(ctx, db, schema)
+	}
+	return nil, nil
+}
+
 // EnumValues returns the database enum values.
 func EnumValues(ctx context.Context, enum string) ([]*models.EnumValue, error) {
 	db, l, schema, err := get(ctx)
@@ -131,6 +145,18 @@ func EnumValues(ctx context.Context, enum string) ([]*models.EnumValue, error) {
 		return nil, err
 	}
 	return l.EnumValues(ctx, db, schema, enum)
+}
+
+// CompositeAttributes returns the attributes for a composite type.
+func CompositeAttributes(ctx context.Context, composite string) ([]*models.CompositeAttribute, error) {
+	db, l, schema, err := get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if l.CompositeAttrs == nil {
+		return nil, nil
+	}
+	return l.CompositeAttrs(ctx, db, schema, composite)
 }
 
 // Procs returns the database procs.
