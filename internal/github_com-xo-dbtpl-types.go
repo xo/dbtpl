@@ -24,6 +24,7 @@ func init() {
 
 		// type definitions
 		"ContextKey":   reflect.ValueOf((*types.ContextKey)(nil)),
+		"Composite":    reflect.ValueOf((*types.Composite)(nil)),
 		"Enum":         reflect.ValueOf((*types.Enum)(nil)),
 		"Field":        reflect.ValueOf((*types.Field)(nil)),
 		"Flag":         reflect.ValueOf((*types.Flag)(nil)),

@@ -20,6 +20,8 @@ func init() {
 		EnumValues:       models.PostgresEnumValues,
 		Procs:            models.PostgresProcs,
 		ProcParams:       models.PostgresProcParams,
+		Composites:       models.PostgresComposites,
+		CompositeAttrs:   models.PostgresCompositeAttributes,
 		Tables:           models.PostgresTables,
 		TableColumns:     PostgresTableColumns,
 		TableSequences:   models.PostgresTableSequences,
@@ -44,6 +46,92 @@ func PostgresFlags() []xo.Flag {
 	}
 }
 
+// pgPrimitiveTypes contains all known PostgreSQL primitive/built-in types.
+// Any type not in this map (and not schema-qualified) is considered a
+// user-defined type (composite or enum).
+var pgPrimitiveTypes = map[string]bool{
+	// Boolean
+	"boolean": true,
+	// Character types
+	"bpchar":            true,
+	"character varying": true,
+	"character":         true,
+	"inet":              true,
+	"money":             true,
+	"text":              true,
+	"name":              true,
+	"char":              true,
+	`"char"`:            true, // PostgreSQL internal char type with quotes
+	// Integer types
+	"smallint": true,
+	"integer":  true,
+	"bigint":   true,
+	// Float types
+	"real":             true,
+	"double precision": true,
+	"numeric":          true,
+	// Date/time types
+	"date":                        true,
+	"timestamp with time zone":    true,
+	"time with time zone":         true,
+	"time without time zone":      true,
+	"timestamp without time zone": true,
+	// Binary and other types
+	"bit":         true,
+	"any":         true,
+	"bit varying": true,
+	"bytea":       true,
+	"interval":    true,
+	"json":        true,
+	"jsonb":       true,
+	"xml":         true,
+	// Extension types commonly used
+	"hstore": true,
+	"uuid":   true,
+	// Additional PostgreSQL system types
+	"oid":      true,
+	"regproc":  true,
+	"regclass": true,
+	"regtype":  true,
+	"cidr":     true,
+	"macaddr":  true,
+	"macaddr8": true,
+	"point":    true,
+	"line":     true,
+	"lseg":     true,
+	"box":      true,
+	"path":     true,
+	"polygon":  true,
+	"circle":   true,
+	"tsquery":  true,
+	"tsvector": true,
+}
+
+// isCompositeType determines if a type is a user-defined composite type (or enum).
+// This is used to decide whether array types should use the generated Array wrapper
+// type (e.g., AddressTypeArray) instead of a Go slice (e.g., []AddressType).
+//
+// Detection logic:
+//  1. Information schema types are system types, not user-defined composites
+//  2. Schema-qualified types (containing a dot) are user-defined types
+//  3. Types not in the pgPrimitiveTypes map are user-defined types
+//
+// Note: PostgreSQL's format_type() function strips the schema prefix for types
+// in the current search_path, so we cannot rely solely on the presence of a dot.
+func isCompositeType(typ string) bool {
+	// Handle information_schema types - these are system types, not composites
+	if strings.HasPrefix(typ, "information_schema.") {
+		return false
+	}
+	// If it contains a dot, it's a schema-qualified user-defined type
+	if strings.Contains(typ, ".") {
+		return true
+	}
+	// If it's not a known primitive type, it's likely a user-defined type
+	// (composite or enum) whose schema prefix was stripped by format_type()
+	return !pgPrimitiveTypes[typ]
+}
+
 // StdlibPostgresGoType parses a type into a Go type based on the databate type definition.
 //
 // For array types, it returns the standard go array ([]<type>).
@@ -53,8 +141,11 @@ func StdlibPostgresGoType(d xo.Type, schema, itype, _ string) (string, string, e
 		return "", "", err
 	}
 	if d.IsArray {
+		if isCompositeType(d.Type) {
+			return goType + "Array", "nil", nil
+		}
 		arrType, ok := pgStdArrMapping[goType]
-		goType, zero = "[]byte", "nil"
+		goType, zero = "[]"+goType, "nil"
 		if ok {
 			goType = arrType
 		}
@@ -71,10 +162,13 @@ func PQPostgresGoType(d xo.Type, schema, itype, _ string) (string, string, error
 		return "", "", err
 	}
 	if d.IsArray {
+		if isCompositeType(d.Type) {
+			return goType + "Array", "nil", nil
+		}
 		arrType, ok := pqArrMapping[goType]
-		goType, zero = "pq.GenericArray", "pg.GenericArray{}" // is of type struct { A any }; can't be nil
+		goType, zero = "[]"+goType, "nil"
 		if ok {
-			goType, zero = arrType, "nil"
+			goType = arrType
 		}
 	}
 	return goType, zero, nil
@@ -239,6 +333,7 @@ func PostgresViewStrip(query, inspect []string) ([]string, []string, []string, e
 var stripRE = regexp.MustCompile(`(?i)::[a-z][a-z0-9_\.]+\s+AS\s+[a-z][a-z0-9_\.]+`)
 
 var pgStdArrMapping = map[string]string{
+	"int":     "[]int64",
 	"bool":    "[]bool",
 	"[]byte":  "[][]byte",
 	"float64": "[]float64",
@@ -250,6 +345,7 @@ var pgStdArrMapping = map[string]string{
 }
 
 var pqArrMapping = map[string]string{
+	"int":     "pq.Int64Array",
 	"bool":    "pq.BoolArray",
 	"[]byte":  "pq.ByteArray",
 	"float64": "pq.Float64Array",

@@ -61,6 +61,7 @@ The following is a matrix of the feature support for each database:
 | Functions    | :white_check_mark: | :white_check_mark: | :white_check_mark: |  :white_check_mark:  | :white_check_mark: |
 | ENUM types   | :white_check_mark: | :white_check_mark: |                    |                      |                    |
 | Custom types | :white_check_mark: |                    |                    |                      |                    |
+| Composite types | :white_check_mark: |                    |                    |                      |                    |
 
 ## Installing
 
