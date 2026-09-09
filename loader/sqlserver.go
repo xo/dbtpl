@@ -67,6 +67,12 @@ func SqlserverGoType(d xo.Type, schema, itype, utype string) (string, string, er
 		}
 	case "binary", "image", "varbinary", "xml":
 		goType, zero = "[]byte", "nil"
+	case "uniqueidentifier":
+		// mssql.UniqueIdentifier was an alternative, but it would tie generated code to the go-mssqldb driver.
+		goType, zero = "uuid.UUID", "uuid.UUID{}"
+		if d.Nullable {
+			goType, zero = "uuid.NullUUID", "uuid.NullUUID{}"
+		}
 	case "date", "time", "smalldatetime", "datetime", "datetime2", "datetimeoffset":
 		goType, zero = "time.Time", "time.Time{}"
 		if d.Nullable {
